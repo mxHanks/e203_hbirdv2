@@ -415,7 +415,7 @@ module e203_subsys_perips(
   
   // * Reserved 
   .O15_BASE_ADDR       (32'h1004_2000),       
-  .O15_BASE_REGION_LSB (3)  // 3 对应的是 8 字节区域，无须修改
+  .O15_BASE_REGION_LSB (12)  // 需要扩大为 4KiB
 
   )u_sirv_ppi_fab(
 
