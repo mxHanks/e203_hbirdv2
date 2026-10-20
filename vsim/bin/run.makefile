@@ -14,7 +14,7 @@ VTB_DIR      := ${RUN_DIR}/../install/tb
 TESTNAME     := $(notdir $(patsubst %.dump,%,${TESTCASE}.dump))
 TEST_RUNDIR  := ${TESTNAME}
 
-RTL_V_FILES		:= $(wildcard ${VSRC_DIR}/*/*.v ${VSRC_DIR}/*/*/*.v)
+RTL_V_FILES := $(wildcard ${VSRC_DIR}/*/*.v ${VSRC_DIR}/*/*/*.v ${VSRC_DIR}/*/*.sv ${VSRC_DIR}/*/*/*.sv)
 TB_V_FILES		:= $(wildcard ${VTB_DIR}/*.v)
 
 # The following portion is depending on the EDA tools you are using, Please add them by yourself according to your EDA vendors
