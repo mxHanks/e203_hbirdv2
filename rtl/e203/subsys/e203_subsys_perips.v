@@ -342,6 +342,21 @@ module e203_subsys_perips(
   //  * Reserved         : 0x1004 2000 -- 0x1004 2FFF
   //  * SysPer    : 0x1100 0000 -- 0x11FF FFFF
 
+
+  // 连接加速器与 CPU
+  wire        accel_cmd_valid;
+  wire        accel_cmd_ready;
+  wire [31:0] accel_cmd_addr;
+  wire        accel_cmd_read;
+  wire [31:0] accel_cmd_wdata;
+  wire [3:0]  accel_cmd_wmask;
+
+  wire        accel_rsp_valid;
+  wire        accel_rsp_ready;
+  wire        accel_rsp_err;
+  wire [31:0] accel_rsp_rdata;
+
+
   sirv_icb1to16_bus # (
   .ICB_FIFO_DP        (2),// We add a ping-pong buffer here to cut down the timing path
   .ICB_FIFO_CUT_READY (1),// We configure it to cut down the back-pressure ready signal
@@ -400,7 +415,7 @@ module e203_subsys_perips(
   
   // * Reserved 
   .O15_BASE_ADDR       (32'h1004_2000),       
-  .O15_BASE_REGION_LSB (3)
+  .O15_BASE_REGION_LSB (3)  // 3 对应的是 8 字节区域，无须修改
 
   )u_sirv_ppi_fab(
 
@@ -742,29 +757,50 @@ module e203_subsys_perips(
 
 
    //  *      
-    .o15_icb_enable     (1'b0),
+    // 使用预留的 o15 模块
+    .o15_icb_enable      (1'b1),
 
-    .o15_icb_cmd_valid  (),
-    .o15_icb_cmd_ready  (1'b0),
-    .o15_icb_cmd_addr   (),
-    .o15_icb_cmd_read   (),
-    .o15_icb_cmd_wdata  (),
-    .o15_icb_cmd_wmask  (),
-    .o15_icb_cmd_lock   (),
-    .o15_icb_cmd_excl   (),
-    .o15_icb_cmd_size   (),
-    .o15_icb_cmd_burst  (),
-    .o15_icb_cmd_beat   (),
-    
-    .o15_icb_rsp_valid  (1'b0),
-    .o15_icb_rsp_ready  (),
-    .o15_icb_rsp_err    (1'b0),
-    .o15_icb_rsp_excl_ok(1'b0),
-    .o15_icb_rsp_rdata  (32'b0),
+    .o15_icb_cmd_valid   (accel_cmd_valid),
+    .o15_icb_cmd_ready   (accel_cmd_ready),
+    .o15_icb_cmd_addr    (accel_cmd_addr),
+    .o15_icb_cmd_read    (accel_cmd_read),
+    .o15_icb_cmd_wdata   (accel_cmd_wdata),
+    .o15_icb_cmd_wmask   (accel_cmd_wmask),
+    .o15_icb_cmd_lock    (),
+    .o15_icb_cmd_excl    (),
+    .o15_icb_cmd_size    (),
+    .o15_icb_cmd_burst   (),
+    .o15_icb_cmd_beat    (),
+
+    .o15_icb_rsp_valid   (accel_rsp_valid),
+    .o15_icb_rsp_ready   (accel_rsp_ready),
+    .o15_icb_rsp_err     (accel_rsp_err),
+    .o15_icb_rsp_excl_ok (1'b0),
+    .o15_icb_rsp_rdata   (accel_rsp_rdata),
+
 
     .clk           (clk  ),
     .rst_n         (bus_rst_n) 
   );
+
+
+accel_icb_slave u_accel_icb_slave (
+    .clk       (clk),
+    .rst_n     (bus_rst_n),
+
+    .cmd_valid (accel_cmd_valid),
+    .cmd_ready (accel_cmd_ready),
+    .cmd_addr  (accel_cmd_addr),
+    .cmd_read  (accel_cmd_read),
+    .cmd_wdata (accel_cmd_wdata),
+    .cmd_wmask (accel_cmd_wmask),
+
+    .rsp_valid (accel_rsp_valid),
+    .rsp_ready (accel_rsp_ready),
+    .rsp_err   (accel_rsp_err),
+    .rsp_rdata (accel_rsp_rdata)
+);
+
 
 
   //  * QSPI0     
