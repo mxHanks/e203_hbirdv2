@@ -1,2 +1,4 @@
 riscv-tools/prebuilt_tools/prefix/*
 doc/build
+/vsim/install/
+/vsim/run/

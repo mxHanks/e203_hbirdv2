@@ -16,7 +16,21 @@
                                                                          
                                                                          
                                                                          
-module e203_soc_top(
+module e203_soc_top #(
+  parameter EXTERNAL_SYSMEM = 0
+)(
+
+  // Optional system-memory ICB. Legacy boards retain the original responder.
+  output ext_sysmem_cmd_valid,
+  input ext_sysmem_cmd_ready,
+  output [31:0] ext_sysmem_cmd_addr,
+  output ext_sysmem_cmd_read,
+  output [31:0] ext_sysmem_cmd_wdata,
+  output [3:0] ext_sysmem_cmd_wmask,
+  input ext_sysmem_rsp_valid,
+  output ext_sysmem_rsp_ready,
+  input ext_sysmem_rsp_err,
+  input [31:0] ext_sysmem_rsp_rdata,
 
     // This clock should comes from the crystal pad generated high speed clock (16MHz)
   input  hfextclk,
@@ -97,6 +111,10 @@ module e203_soc_top(
 
  wire sysmem_icb_cmd_valid;
  wire sysmem_icb_cmd_ready;
+ wire sysmem_icb_rsp_ready;
+ assign ext_sysmem_cmd_valid = EXTERNAL_SYSMEM ? sysmem_icb_cmd_valid : 1'b0;
+ assign ext_sysmem_rsp_ready = EXTERNAL_SYSMEM ? sysmem_icb_rsp_ready : 1'b0;
+ assign sysmem_icb_cmd_ready = EXTERNAL_SYSMEM ? ext_sysmem_cmd_ready : sysmem_icb_rsp_ready;
 
  e203_subsys_top u_e203_subsys_top(
     .core_mhartid      (1'b0),
@@ -159,15 +177,15 @@ module e203_soc_top(
 
   .sysmem_icb_cmd_valid(sysmem_icb_cmd_valid),
   .sysmem_icb_cmd_ready(sysmem_icb_cmd_ready),
-  .sysmem_icb_cmd_read (), 
-  .sysmem_icb_cmd_addr (), 
-  .sysmem_icb_cmd_wdata(), 
-  .sysmem_icb_cmd_wmask(), 
+  .sysmem_icb_cmd_read (ext_sysmem_cmd_read),
+  .sysmem_icb_cmd_addr (ext_sysmem_cmd_addr),
+  .sysmem_icb_cmd_wdata(ext_sysmem_cmd_wdata),
+  .sysmem_icb_cmd_wmask(ext_sysmem_cmd_wmask),
 
-  .sysmem_icb_rsp_valid(sysmem_icb_cmd_valid),
-  .sysmem_icb_rsp_ready(sysmem_icb_cmd_ready),
-  .sysmem_icb_rsp_err  (1'b0  ),
-  .sysmem_icb_rsp_rdata(32'b0),
+  .sysmem_icb_rsp_valid(EXTERNAL_SYSMEM ? ext_sysmem_rsp_valid : sysmem_icb_cmd_valid),
+  .sysmem_icb_rsp_ready(sysmem_icb_rsp_ready),
+  .sysmem_icb_rsp_err  (EXTERNAL_SYSMEM ? ext_sysmem_rsp_err : 1'b0),
+  .sysmem_icb_rsp_rdata(EXTERNAL_SYSMEM ? ext_sysmem_rsp_rdata : 32'b0),
 
   .io_pads_jtag_TCK_i_ival    (io_pads_jtag_TCK_i_ival    ),
   .io_pads_jtag_TCK_o_oval    (),
