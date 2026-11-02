@@ -23,7 +23,7 @@ module accel_icb_slave (
     // 响应隧道，加速器向 CPU 回复信息
     output reg         rsp_valid,   // 加速器提出有效请求
     input  wire        rsp_ready,   // CPU 可以接收请求
-    output wire        rsp_err,
+    output reg         rsp_err,
     output reg  [31:0] rsp_rdata
 );
 
@@ -53,6 +53,23 @@ module accel_icb_slave (
     localparam [11:0] REG_CACHE_HI     = 12'h04C;
     localparam [11:0] REG_CAPABILITY   = 12'h050;
     localparam [31:0] XU_CAPABILITY   = 32'h58550003;
+    // xu S2a is additive: the frozen H1/H2 capability remains bit-exact.
+    localparam [11:0] REG_W_CURSOR    = 12'h054;
+    localparam [11:0] REG_W_STREAM16  = 12'h058;
+    localparam [11:0] REG_X_CURSOR    = 12'h060;
+    localparam [11:0] REG_X_STREAM16  = 12'h064;
+    localparam [11:0] REG_STREAM_STATUS = 12'h06C;
+    localparam [11:0] REG_STREAM_CAP  = 12'h070;
+    localparam [31:0] XU_STREAM_CAP  = 32'h58530003;
+
+    reg [14:0] w_cursor;
+    reg [6:0] x_cursor;
+    reg stream_pending;
+    reg stream_is_w;
+    reg stream_error;
+    reg [2:0] stream_bank;
+    reg [10:0] stream_addr;
+    reg [15:0] stream_data;
 
     reg [31:0] scratch;
 
@@ -100,8 +117,9 @@ module accel_icb_slave (
 
     integer i;
 
-    assign rsp_err  = 1'b0;
-    assign cmd_ready = !rsp_valid || rsp_ready;
+    // One captured stream beat owns the scalar core write port until commit.
+    // Its response cannot retire before the sampled internal write edge.
+    assign cmd_ready = (!rsp_valid || rsp_ready) && !stream_pending;
 
     // Chisel-generated calculation core.
     // E203 reset is active-low; Chisel reset is active-high.
@@ -118,14 +136,14 @@ module accel_icb_slave (
         .io_cacheReadAddr (cache_addr_reg),
         .io_cacheReadData (cache_read_data),
 
-        .io_xLoadWen    (x_load_wen),
-        .io_xLoadAddr   (x_addr_reg),
-        .io_xLoadData   (x_data_reg),
+        .io_xLoadWen    (x_load_wen || (stream_pending && !stream_is_w)),
+        .io_xLoadAddr   ((stream_pending && !stream_is_w) ? stream_addr[5:0] : x_addr_reg),
+        .io_xLoadData   ((stream_pending && !stream_is_w) ? stream_data : x_data_reg),
 
-        .io_wLoadWen    (w_load_wen),
-        .io_wLoadBank   (w_bank_reg),
-        .io_wLoadAddr   (w_addr_reg),
-        .io_wLoadData   (w_data_reg),
+        .io_wLoadWen    (w_load_wen || (stream_pending && stream_is_w)),
+        .io_wLoadBank   ((stream_pending && stream_is_w) ? stream_bank : w_bank_reg),
+        .io_wLoadAddr   ((stream_pending && stream_is_w) ? stream_addr : w_addr_reg),
+        .io_wLoadData   ((stream_pending && stream_is_w) ? stream_data : w_data_reg),
 
         .io_bias_0      (bias_regs[0]),
         .io_bias_1      (bias_regs[1]),
@@ -150,6 +168,15 @@ module accel_icb_slave (
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             rsp_valid       <= 1'b0;
+            rsp_err         <= 1'b0;
+            w_cursor        <= 15'b0;
+            x_cursor        <= 7'b0;
+            stream_pending  <= 1'b0;
+            stream_is_w     <= 1'b0;
+            stream_error    <= 1'b0;
+            stream_bank     <= 3'b0;
+            stream_addr     <= 11'b0;
+            stream_data     <= 16'b0;
             rsp_rdata       <= 32'b0;
             scratch         <= 32'b0;
 
@@ -188,10 +215,22 @@ module accel_icb_slave (
                 done_sticky <= 1'b1;
             end
 
+            // The captured port inputs are sampled by the core on this edge.
+            // Advance only once at commit, then hold the response under stall.
+            if (stream_pending) begin
+                stream_pending <= 1'b0;
+                if (stream_is_w) w_cursor <= w_cursor + 15'd1;
+                else x_cursor <= x_cursor + 7'd1;
+                rsp_valid <= 1'b1;
+                rsp_rdata <= 32'b0;
+                rsp_err <= 1'b0;
+            end
+
             if (cmd_ready) begin
                 rsp_valid <= cmd_valid;
 
                 if (cmd_valid) begin
+                    rsp_err <= 1'b0;
                     if (cmd_read) begin
                         case (cmd_addr[11:0])
                             REG_ID:
@@ -251,6 +290,14 @@ module accel_icb_slave (
                                 rsp_rdata <= {24'b0, cache_read_data[39:32]};
                             REG_CAPABILITY:
                                 rsp_rdata <= XU_CAPABILITY;
+                            REG_W_CURSOR:
+                                rsp_rdata <= {17'b0, w_cursor};
+                            REG_X_CURSOR:
+                                rsp_rdata <= {25'b0, x_cursor};
+                            REG_STREAM_STATUS:
+                                rsp_rdata <= {30'b0, stream_error, stream_pending};
+                            REG_STREAM_CAP:
+                                rsp_rdata <= XU_STREAM_CAP;
 
                             REG_RESULT_LO: begin
                                 case (result_index_reg)
@@ -365,6 +412,38 @@ module accel_icb_slave (
                                 if (cmd_wmask[0])
                                     bias_regs[bias_index_reg][39:32]
                                         <= cmd_wdata[7:0];
+                            end
+
+                            REG_W_CURSOR: begin
+                                if (cmd_wmask != 4'hf || busy || cmd_wdata > 32'd16384) begin
+                                    rsp_err <= 1'b1;
+                                    stream_error <= 1'b1;
+                                end else w_cursor <= cmd_wdata[14:0];
+                            end
+                            REG_X_CURSOR: begin
+                                if (cmd_wmask != 4'hf || busy || cmd_wdata > 32'd64) begin
+                                    rsp_err <= 1'b1;
+                                    stream_error <= 1'b1;
+                                end else x_cursor <= cmd_wdata[6:0];
+                            end
+                            REG_W_STREAM16, REG_X_STREAM16: begin
+                                if (cmd_wmask != 4'hf || busy ||
+                                    (cmd_addr[11:0] == REG_W_STREAM16 && w_cursor >= 15'd16384) ||
+                                    (cmd_addr[11:0] == REG_X_STREAM16 && x_cursor >= 7'd64)) begin
+                                    rsp_err <= 1'b1;
+                                    stream_error <= 1'b1;
+                                end else begin
+                                    stream_is_w <= cmd_addr[11:0] == REG_W_STREAM16;
+                                    stream_bank <= w_cursor[2:0];
+                                    stream_addr <= cmd_addr[11:0] == REG_W_STREAM16 ?
+                                        {w_cursor[7:3], w_cursor[13:8]} : {5'b0, x_cursor[5:0]};
+                                    stream_data <= cmd_wdata[15:0];
+                                    stream_pending <= 1'b1;
+                                    rsp_valid <= 1'b0;
+                                end
+                            end
+                            REG_STREAM_STATUS: begin
+                                if (cmd_wmask[0] && cmd_wdata[1]) stream_error <= 1'b0;
                             end
 
                             REG_RESULT_INDEX:
