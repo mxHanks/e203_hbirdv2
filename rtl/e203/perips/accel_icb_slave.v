@@ -46,6 +46,13 @@ module accel_icb_slave (
     localparam [11:0] REG_RESULT_INDEX = 12'h034;
     localparam [11:0] REG_RESULT_LO    = 12'h038;
     localparam [11:0] REG_RESULT_HI    = 12'h03C;
+    // xu additive extensions; the original 0x000--0x03c ABI is unchanged.
+    localparam [11:0] REG_CACHE_CTRL   = 12'h040;
+    localparam [11:0] REG_CACHE_ADDR   = 12'h044;
+    localparam [11:0] REG_CACHE_LO     = 12'h048;
+    localparam [11:0] REG_CACHE_HI     = 12'h04C;
+    localparam [11:0] REG_CAPABILITY   = 12'h050;
+    localparam [31:0] XU_CAPABILITY   = 32'h58550003;
 
     reg [31:0] scratch;
 
@@ -64,6 +71,17 @@ module accel_icb_slave (
     reg [39:0] bias_regs [0:7];
 
     reg [2:0] result_index_reg;
+    reg cache_enable;
+    reg [7:0] cache_addr_reg;
+    wire [39:0] cache_read_data;
+    wire cache_write_lo = cmd_valid && cmd_ready && !cmd_read &&
+                          cmd_addr[11:0] == REG_CACHE_LO;
+    wire cache_write_hi = cmd_valid && cmd_ready && !cmd_read &&
+                          cmd_addr[11:0] == REG_CACHE_HI;
+    wire [39:0] cache_write_data = cache_write_hi ?
+        {cmd_wdata[7:0], 32'b0} : {8'b0, cmd_wdata};
+    wire [4:0] cache_write_mask = cache_write_hi ?
+        {cmd_wmask[0], 4'b0} : {1'b0, cmd_wmask};
 
     reg core_start;
     reg busy;
@@ -87,11 +105,18 @@ module accel_icb_slave (
 
     // Chisel-generated calculation core.
     // E203 reset is active-low; Chisel reset is active-high.
-    LinearComputeCore u_linear_compute_core (
+    LinearCachedCore u_linear_compute_core (
         .clock          (clk),
         .reset          (!rst_n),
         .io_start       (core_start),
         .io_group       (group_reg),
+        .io_cacheEnable (cache_enable),
+        .io_cacheWriteEnable (cache_write_lo || cache_write_hi),
+        .io_cacheWriteAddr (cache_addr_reg),
+        .io_cacheWriteData (cache_write_data),
+        .io_cacheWriteMask (cache_write_mask),
+        .io_cacheReadAddr (cache_addr_reg),
+        .io_cacheReadData (cache_read_data),
 
         .io_xLoadWen    (x_load_wen),
         .io_xLoadAddr   (x_addr_reg),
@@ -141,6 +166,8 @@ module accel_icb_slave (
 
             bias_index_reg  <= 3'b0;
             result_index_reg <= 3'b0;
+            cache_enable <= 1'b0;
+            cache_addr_reg <= 8'b0;
 
             core_start      <= 1'b0;
             busy            <= 1'b0;
@@ -214,6 +241,17 @@ module accel_icb_slave (
                             REG_RESULT_INDEX:
                                 rsp_rdata <= {29'b0, result_index_reg};
 
+                            REG_CACHE_CTRL:
+                                rsp_rdata <= {31'b0, cache_enable};
+                            REG_CACHE_ADDR:
+                                rsp_rdata <= {24'b0, cache_addr_reg};
+                            REG_CACHE_LO:
+                                rsp_rdata <= cache_read_data[31:0];
+                            REG_CACHE_HI:
+                                rsp_rdata <= {24'b0, cache_read_data[39:32]};
+                            REG_CAPABILITY:
+                                rsp_rdata <= XU_CAPABILITY;
+
                             REG_RESULT_LO: begin
                                 case (result_index_reg)
                                     0: rsp_rdata <= core_result_0[31:0];
@@ -241,6 +279,25 @@ module accel_icb_slave (
                                     default: rsp_rdata <= 32'b0;
                                 endcase
                             end
+
+                            // Contiguous, side-effect-free result window. Each
+                            // lane occupies LO32 followed by zero-extended HI16.
+                            12'h080: rsp_rdata <= core_result_0[31:0];
+                            12'h084: rsp_rdata <= {16'b0, core_result_0[47:32]};
+                            12'h088: rsp_rdata <= core_result_1[31:0];
+                            12'h08C: rsp_rdata <= {16'b0, core_result_1[47:32]};
+                            12'h090: rsp_rdata <= core_result_2[31:0];
+                            12'h094: rsp_rdata <= {16'b0, core_result_2[47:32]};
+                            12'h098: rsp_rdata <= core_result_3[31:0];
+                            12'h09C: rsp_rdata <= {16'b0, core_result_3[47:32]};
+                            12'h0A0: rsp_rdata <= core_result_4[31:0];
+                            12'h0A4: rsp_rdata <= {16'b0, core_result_4[47:32]};
+                            12'h0A8: rsp_rdata <= core_result_5[31:0];
+                            12'h0AC: rsp_rdata <= {16'b0, core_result_5[47:32]};
+                            12'h0B0: rsp_rdata <= core_result_6[31:0];
+                            12'h0B4: rsp_rdata <= {16'b0, core_result_6[47:32]};
+                            12'h0B8: rsp_rdata <= core_result_7[31:0];
+                            12'h0BC: rsp_rdata <= {16'b0, core_result_7[47:32]};
 
                             default:
                                 rsp_rdata <= 32'b0;
@@ -312,6 +369,13 @@ module accel_icb_slave (
 
                             REG_RESULT_INDEX:
                                 result_index_reg <= cmd_wdata[2:0];
+
+                            REG_CACHE_CTRL: begin
+                                if (cmd_wmask[0]) cache_enable <= cmd_wdata[0];
+                            end
+                            REG_CACHE_ADDR: begin
+                                if (cmd_wmask[0]) cache_addr_reg <= cmd_wdata[7:0];
+                            end
 
                             default: begin
                                 // Unimplemented or read-only address.
