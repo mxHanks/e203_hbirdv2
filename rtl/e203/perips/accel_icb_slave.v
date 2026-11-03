@@ -67,6 +67,29 @@ module accel_icb_slave (
     // preserved the old H1/H2 CAP. Packed feature bits have a separate word.
     localparam [11:0] REG_PACKED_CAP = 12'h074;
     localparam [31:0] XU_PACKED_CAP = 32'h58500003;
+    // S2c has its own capability; all three existing CAP words stay exact.
+    localparam [11:0] REG_AUTO_CAP = 12'h078;
+    localparam [31:0] XU_AUTO_CAP = 32'h58410001;
+    localparam [11:0] REG_ROW_CTRL = 12'h0C0;
+    localparam [11:0] REG_ROW_STATUS = 12'h0C4;
+    localparam [11:0] REG_ROW_POP = 12'h0C8;
+    wire row_active, row_running, row_valid, compute_start;
+    wire [1:0] row_count;
+    wire [5:0] row_produced, row_retired;
+    wire [4:0] row_group;
+    wire [47:0] row_result [0:7];
+    reg row_start;
+    // Metadata follows the one response slot. No head movement at acceptance.
+    reg rsp_row_pop;
+    wire row_pop = rsp_valid && rsp_ready && rsp_row_pop;
+    wire row_start_accept = cmd_valid && cmd_ready && !cmd_read &&
+        cmd_addr[11:0] == REG_ROW_CTRL && cmd_wmask == 4'hf &&
+        cmd_wdata == 32'd1 && cache_enable && !busy && !row_start &&
+        !core_start && !x_load_wen && !w_load_wen && row_count == 0;
+    wire row_protected_write = !cmd_read && (row_active || row_start) &&
+        ((cmd_addr[11:0] >= REG_GROUP && cmd_addr[11:0] <= REG_BIAS_HI) ||
+         (cmd_addr[11:0] >= REG_CACHE_CTRL && cmd_addr[11:0] <= REG_CACHE_HI) ||
+         (cmd_addr[11:0] >= REG_W_CURSOR && cmd_addr[11:0] <= REG_X_PACK32));
 
     reg [14:0] w_cursor;
     reg [6:0] x_cursor;
@@ -101,16 +124,17 @@ module accel_icb_slave (
     reg [7:0] cache_addr_reg;
     wire [39:0] cache_read_data;
     wire cache_write_lo = cmd_valid && cmd_ready && !cmd_read &&
-                          cmd_addr[11:0] == REG_CACHE_LO;
+                          cmd_addr[11:0] == REG_CACHE_LO && !row_active && !row_start;
     wire cache_write_hi = cmd_valid && cmd_ready && !cmd_read &&
-                          cmd_addr[11:0] == REG_CACHE_HI;
+                          cmd_addr[11:0] == REG_CACHE_HI && !row_active && !row_start;
     wire [39:0] cache_write_data = cache_write_hi ?
         {cmd_wdata[7:0], 32'b0} : {8'b0, cmd_wdata};
     wire [4:0] cache_write_mask = cache_write_hi ?
         {cmd_wmask[0], 4'b0} : {1'b0, cmd_wmask};
 
     reg core_start;
-    reg busy;
+    reg manual_busy;
+    wire busy = manual_busy || row_active || row_start;
     reg done_sticky;
 
     wire core_done;
@@ -132,10 +156,28 @@ module accel_icb_slave (
 
     // Chisel-generated calculation core.
     // E203 reset is active-low; Chisel reset is active-high.
-    LinearCachedCore u_linear_compute_core (
+    LinearAutoGroupCore u_linear_compute_core (
         .clock          (clk),
         .reset          (!rst_n),
         .io_start       (core_start),
+        .io_rowStart    (row_start),
+        .io_rowPop      (row_pop),
+        .io_rowActive   (row_active),
+        .io_rowRunning  (row_running),
+        .io_rowValid    (row_valid),
+        .io_rowCount    (row_count),
+        .io_rowProduced (row_produced),
+        .io_rowRetired  (row_retired),
+        .io_rowGroup    (row_group),
+        .io_rowResult_0 (row_result[0]),
+        .io_rowResult_1 (row_result[1]),
+        .io_rowResult_2 (row_result[2]),
+        .io_rowResult_3 (row_result[3]),
+        .io_rowResult_4 (row_result[4]),
+        .io_rowResult_5 (row_result[5]),
+        .io_rowResult_6 (row_result[6]),
+        .io_rowResult_7 (row_result[7]),
+        .io_computeStart(compute_start),
         .io_group       (group_reg),
         .io_cacheEnable (cache_enable),
         .io_cacheWriteEnable (cache_write_lo || cache_write_hi),
@@ -209,7 +251,9 @@ module accel_icb_slave (
             cache_addr_reg <= 8'b0;
 
             core_start      <= 1'b0;
-            busy            <= 1'b0;
+            manual_busy     <= 1'b0;
+            row_start       <= 1'b0;
+            rsp_row_pop     <= 1'b0;
             done_sticky     <= 1'b0;
 
             for (i = 0; i < 8; i = i + 1)
@@ -218,12 +262,14 @@ module accel_icb_slave (
         end else begin
             // These are one-cycle write/start strobes.
             core_start <= 1'b0;
+            row_start <= 1'b0;
+            if (rsp_valid && rsp_ready) rsp_row_pop <= 1'b0;
             x_load_wen <= 1'b0;
             w_load_wen <= 1'b0;
 
             // Latch completion so software can poll STATUS.
-            if (core_done) begin
-                busy        <= 1'b0;
+            if (core_done && !row_active) begin
+                manual_busy <= 1'b0;
                 done_sticky <= 1'b1;
             end
 
@@ -254,7 +300,17 @@ module accel_icb_slave (
 
                 if (cmd_valid) begin
                     rsp_err <= 1'b0;
-                    if (cmd_read) begin
+                    if (cmd_read && cmd_addr[11:0] >= 12'h100 &&
+                        cmd_addr[11:0] <= 12'h13c && cmd_addr[1:0] == 0) begin
+                        // Side-effect-free snapshot into the response slot.
+                        // Head and all 384 bits remain owned until POP retires.
+                        if (!row_valid || row_pop) begin
+                            rsp_rdata <= 0;
+                            rsp_err <= 1'b1;
+                        end else if (cmd_addr[2])
+                            rsp_rdata <= {16'b0, row_result[cmd_addr[5:3]][47:32]};
+                        else rsp_rdata <= row_result[cmd_addr[5:3]][31:0];
+                    end else if (cmd_read) begin
                         case (cmd_addr[11:0])
                             REG_ID:
                                 rsp_rdata <= ACCEL_ID;
@@ -323,6 +379,12 @@ module accel_icb_slave (
                                 rsp_rdata <= XU_STREAM_CAP;
                             REG_PACKED_CAP:
                                 rsp_rdata <= XU_PACKED_CAP;
+                            REG_AUTO_CAP: rsp_rdata <= XU_AUTO_CAP;
+                            REG_ROW_CTRL, REG_ROW_POP: rsp_rdata <= 0;
+                            REG_ROW_STATUS:
+                                rsp_rdata <= {2'b0, row_retired, 2'b0, row_produced,
+                                    5'b0, row_group, row_count, row_running,
+                                    (row_produced == 32), row_valid, row_active};
 
                             REG_RESULT_LO: begin
                                 case (result_index_reg)
@@ -375,8 +437,21 @@ module accel_icb_slave (
                                 rsp_rdata <= 32'b0;
                         endcase
 
+                    end else if (row_protected_write) begin
+                        // Unlike the historical manual path, autonomous rows
+                        // own all operand storage through final POP retirement.
+                        rsp_err <= 1'b1;
                     end else begin
                         case (cmd_addr[11:0])
+                            REG_ROW_CTRL: begin
+                                if (row_start_accept) row_start <= 1'b1;
+                                else rsp_err <= 1'b1;
+                            end
+                            REG_ROW_POP: begin
+                                if (cmd_wmask != 4'hf || cmd_wdata != 1 ||
+                                    !row_valid || row_pop) rsp_err <= 1'b1;
+                                else rsp_row_pop <= 1'b1;
+                            end
                             REG_SCRATCH: begin
                                 for (i = 0; i < 4; i = i + 1) begin
                                     if (cmd_wmask[i])
@@ -389,7 +464,7 @@ module accel_icb_slave (
                                 // CTRL[0] = START. Ignore while busy.
                                 if (cmd_wdata[0] && !busy) begin
                                     core_start  <= 1'b1;
-                                    busy        <= 1'b1;
+                                    manual_busy <= 1'b1;
                                     done_sticky <= 1'b0;
                                 end
                             end
