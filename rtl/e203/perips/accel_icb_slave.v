@@ -82,10 +82,6 @@ module accel_icb_slave (
     // Metadata follows the one response slot. No head movement at acceptance.
     reg rsp_row_pop;
     wire row_pop = rsp_valid && rsp_ready && rsp_row_pop;
-    wire row_start_accept = cmd_valid && cmd_ready && !cmd_read &&
-        cmd_addr[11:0] == REG_ROW_CTRL && cmd_wmask == 4'hf &&
-        cmd_wdata == 32'd1 && cache_enable && !busy && !row_start &&
-        !core_start && !x_load_wen && !w_load_wen && row_count == 0;
     wire row_protected_write = !cmd_read && (row_active || row_start) &&
         ((cmd_addr[11:0] >= REG_GROUP && cmd_addr[11:0] <= REG_BIAS_HI) ||
          (cmd_addr[11:0] >= REG_CACHE_CTRL && cmd_addr[11:0] <= REG_CACHE_HI) ||
@@ -136,6 +132,11 @@ module accel_icb_slave (
     reg manual_busy;
     wire busy = manual_busy || row_active || row_start;
     reg done_sticky;
+
+    wire row_start_accept = cmd_valid && cmd_ready && !cmd_read &&
+        cmd_addr[11:0] == REG_ROW_CTRL && cmd_wmask == 4'hf &&
+        cmd_wdata == 32'd1 && cache_enable && !busy && !row_start &&
+        !core_start && !x_load_wen && !w_load_wen && row_count == 0;
 
     wire core_done;
 
