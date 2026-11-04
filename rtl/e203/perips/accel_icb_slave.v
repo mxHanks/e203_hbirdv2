@@ -70,6 +70,9 @@ module accel_icb_slave (
     // S2c has its own capability; all three existing CAP words stay exact.
     localparam [11:0] REG_AUTO_CAP = 12'h078;
     localparam [31:0] XU_AUTO_CAP = 32'h58410001;
+    // xu S2e packs two HI16 values; all old HI reads stay zero-extended.
+    localparam [11:0] REG_PAIRED_HI_CAP = 12'h0E0;
+    localparam [31:0] XU_PAIRED_HI_CAP = 32'h58480001;
     localparam [11:0] REG_ROW_CTRL = 12'h0C0;
     localparam [11:0] REG_ROW_STATUS = 12'h0C4;
     localparam [11:0] REG_ROW_POP = 12'h0C8;
@@ -301,7 +304,16 @@ module accel_icb_slave (
 
                 if (cmd_valid) begin
                     rsp_err <= 1'b0;
-                    if (cmd_read && cmd_addr[11:0] >= 12'h100 &&
+                    if (cmd_addr[11:0] >= 12'h140 && cmd_addr[11:0] <= 12'h14f) begin
+                        // Both halves come from one owned head and enter the
+                        // response slot together. Only POP retirement releases it.
+                        rsp_rdata <= 0;
+                        if (!cmd_read || cmd_addr[1:0] != 0 ||
+                            !row_active || !row_valid || row_pop) rsp_err <= 1'b1;
+                        else rsp_rdata <= {
+                            row_result[{cmd_addr[3:2],1'b1}][47:32],
+                            row_result[{cmd_addr[3:2],1'b0}][47:32]};
+                    end else if (cmd_read && cmd_addr[11:0] >= 12'h100 &&
                         cmd_addr[11:0] <= 12'h13c && cmd_addr[1:0] == 0) begin
                         // Side-effect-free snapshot into the response slot.
                         // Head and all 384 bits remain owned until POP retires.
@@ -315,6 +327,9 @@ module accel_icb_slave (
                         case (cmd_addr[11:0])
                             REG_ID:
                                 rsp_rdata <= ACCEL_ID;
+
+                            REG_PAIRED_HI_CAP:
+                                rsp_rdata <= XU_PAIRED_HI_CAP;
 
                             REG_SCRATCH:
                                 rsp_rdata <= scratch;
