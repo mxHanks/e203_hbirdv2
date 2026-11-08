@@ -28,6 +28,17 @@
 `include "e203_defines.v"
 
 module e203_cpu_top(
+    // Same hfclk domain. Common asynchronous reset assertion; NICE release
+    // uses the CPU's existing synchronized rst_aon. No CPU control changes.
+    input                         xu_direct_capable,
+    output                        xu_direct_claim,
+    input                         xu_direct_valid,
+    output                        xu_direct_ready,
+    input [255:0]                 xu_direct_payload,
+    input [31:0]                  xu_direct_status,
+    output                        xu_direct_commit,
+    input                         xu_direct_commit_ready,
+    input                         xu_direct_commit_err,
   output [`E203_PC_SIZE-1:0] inspect_pc,
   output inspect_dbg_irq      ,
   output inspect_mem_cmd_valid,
@@ -343,6 +354,11 @@ module e203_cpu_top(
     `endif
 
   e203_cpu #(.MASTER(1)) u_e203_cpu(
+    .xu_direct_capable(xu_direct_capable), .xu_direct_claim(xu_direct_claim),
+    .xu_direct_valid(xu_direct_valid), .xu_direct_ready(xu_direct_ready),
+    .xu_direct_payload(xu_direct_payload), .xu_direct_status(xu_direct_status),
+    .xu_direct_commit(xu_direct_commit), .xu_direct_commit_ready(xu_direct_commit_ready),
+    .xu_direct_commit_err(xu_direct_commit_err),
     .inspect_pc               (inspect_pc), 
     .inspect_dbg_irq          (inspect_dbg_irq      ),
     .inspect_mem_cmd_valid    (inspect_mem_cmd_valid), 

@@ -12,7 +12,18 @@
 `include "e203_defines.v"
 
 `ifdef E203_HAS_NICE
-module xu_nice_drain8 (
+module xu_nice_drain8 #(parameter DIRECT_ENABLE=0) (
+    // Same hfclk domain. Common asynchronous reset assertion; NICE release
+    // uses the CPU's existing synchronized rst_aon. No CPU control changes.
+    input                         xu_direct_capable,
+    output                        xu_direct_claim,
+    input                         xu_direct_valid,
+    output                        xu_direct_ready,
+    input [255:0]                 xu_direct_payload,
+    input [31:0]                  xu_direct_status,
+    output                        xu_direct_commit,
+    input                         xu_direct_commit_ready,
+    input                         xu_direct_commit_err,
     input                         nice_clk,
     input                         nice_rst_n,
     output                        nice_active,
@@ -39,7 +50,7 @@ module xu_nice_drain8 (
 );
     localparam [3:0] IDLE=0, SEND_POLL=1, WAIT_POLL=2,
                      SEND_READ=3, WAIT_READ=4, SEND_WRITE=5, WAIT_WRITE=6,
-                     RESP=11;
+                     DIRECT_WAIT=7, DIRECT_COMMIT=8, RESP=11;
     // Frozen software return codes. Bus error location is available in the
     // transaction trace; every bus-error phase returns the same nonzero code.
     localparam [31:0] ERR_INSTRUCTION=1, ERR_ALIGNMENT=2, ERR_RANGE=3,
@@ -50,6 +61,7 @@ module xu_nice_drain8 (
     localparam [31:0] Y_FIRST=32'ha0020000, Y_LAST_GROUP=32'ha0038be0;
 
     reg [3:0] state;
+    reg direct_mode;
     reg [31:0] destination, completion_code;
     reg [4:0] expected_group;
     reg [26:0] polls_left;
@@ -64,6 +76,11 @@ module xu_nice_drain8 (
                           nice_req_inst[31:25]==7'h20;
     integer i;
 
+    // Keep the frozen poll limit: only retired LSU ROW_STATUS responses
+    // consume polls_left. Direct capture has no cycle timeout.
+    assign xu_direct_claim = direct_mode && (state==DIRECT_WAIT || state==DIRECT_COMMIT);
+    assign xu_direct_ready = direct_mode && state==DIRECT_WAIT;
+    assign xu_direct_commit = direct_mode && state==DIRECT_COMMIT;
     assign nice_active = state!=IDLE || nice_req_valid;
     assign nice_mem_holdup = state!=IDLE;
     assign nice_req_ready = state==IDLE;
@@ -96,6 +113,7 @@ module xu_nice_drain8 (
     always @(posedge nice_clk or negedge nice_rst_n) begin
         if (!nice_rst_n) begin
             state <= IDLE;
+            direct_mode <= 0;
             destination <= 0;
             completion_code <= 0;
             expected_group <= 0;
@@ -105,6 +123,8 @@ module xu_nice_drain8 (
         end else begin
             case (state)
                 IDLE: if (nice_req_valid && nice_req_ready) begin
+                    direct_mode <= 0;
+                    if (DIRECT_ENABLE && xu_direct_capable) direct_mode <= 1;
                     destination <= nice_req_rs1;
                     expected_group <= nice_req_rs2[4:0];
                     polls_left <= nice_req_rs2[31:5];
@@ -139,7 +159,7 @@ module xu_nice_drain8 (
                             state <= RESP;
                         end else begin
                             lane <= 0;
-                            state <= SEND_READ;
+                            state <= direct_mode ? DIRECT_WAIT : SEND_READ;
                         end
                     end else if (polls_left==1) begin
                         completion_code <= ERR_TIMEOUT;
@@ -148,6 +168,27 @@ module xu_nice_drain8 (
                         polls_left <= polls_left-1'b1;
                         state <= SEND_POLL;
                     end
+                end
+                DIRECT_WAIT: if (xu_direct_valid && xu_direct_ready) begin
+                    if (!xu_direct_status[0] || !xu_direct_status[1]) begin
+                        completion_code <= ERR_ROW_STATE;
+                        state <= RESP;
+                    end else if (xu_direct_status[10:6]!=expected_group) begin
+                        completion_code <= ERR_GROUP;
+                        state <= RESP;
+                    end else begin
+                        for (i=0; i<8; i=i+1) snapshot[i] <= xu_direct_payload[32*i +: 32];
+                        lane <= 0;
+                        state <= DIRECT_COMMIT;
+                    end
+                end
+                // Commit is offered one edge AFTER all 8 snapshot registers
+                // captured. No POP at the direct bundle acceptance edge.
+                DIRECT_COMMIT: if (xu_direct_commit && xu_direct_commit_ready) begin
+                    if (xu_direct_commit_err) begin
+                        completion_code <= ERR_ROW_STATE;
+                        state <= RESP;
+                    end else state <= SEND_WRITE;
                 end
                 SEND_READ: if (command_fire) state <= WAIT_READ;
                 WAIT_READ: if (response_fire) begin

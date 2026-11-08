@@ -29,6 +29,17 @@
 
 
 module e203_subsys_perips(
+    // Same hfclk domain. Common asynchronous reset assertion; NICE release
+    // uses the CPU's existing synchronized rst_aon. No CPU control changes.
+    output                         xu_direct_capable,
+    input                        xu_direct_claim,
+    output                         xu_direct_valid,
+    input                        xu_direct_ready,
+    output [255:0]                 xu_direct_payload,
+    output [31:0]                  xu_direct_status,
+    input                        xu_direct_commit,
+    output                         xu_direct_commit_ready,
+    output                         xu_direct_commit_err,
   input                          ppi_icb_cmd_valid,
   output                         ppi_icb_cmd_ready,
   input  [`E203_ADDR_SIZE-1:0]   ppi_icb_cmd_addr, 
@@ -784,7 +795,12 @@ module e203_subsys_perips(
   );
 
 
-accel_icb_slave u_accel_icb_slave (
+accel_icb_slave #(.DIRECT_ENABLE(1)) u_accel_icb_slave (
+    .xu_direct_capable(xu_direct_capable), .xu_direct_claim(xu_direct_claim),
+    .xu_direct_valid(xu_direct_valid), .xu_direct_ready(xu_direct_ready),
+    .xu_direct_payload(xu_direct_payload), .xu_direct_status(xu_direct_status),
+    .xu_direct_commit(xu_direct_commit), .xu_direct_commit_ready(xu_direct_commit_ready),
+    .xu_direct_commit_err(xu_direct_commit_err),
     .clk       (clk),
     .rst_n     (bus_rst_n),
 

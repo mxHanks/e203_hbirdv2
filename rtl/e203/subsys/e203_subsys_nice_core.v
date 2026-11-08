@@ -26,6 +26,17 @@
 
 `ifdef E203_HAS_NICE//{
 module e203_subsys_nice_core (
+    // Same hfclk domain. Common asynchronous reset assertion; NICE release
+    // uses the CPU's existing synchronized rst_aon. No CPU control changes.
+    input                         xu_direct_capable,
+    output                        xu_direct_claim,
+    input                         xu_direct_valid,
+    output                        xu_direct_ready,
+    input [255:0]                 xu_direct_payload,
+    input [31:0]                  xu_direct_status,
+    output                        xu_direct_commit,
+    input                         xu_direct_commit_ready,
+    input                         xu_direct_commit_err,
     input                         nice_clk,
     input                         nice_rst_n,
     output                        nice_active,
@@ -113,7 +124,12 @@ module e203_subsys_nice_core (
         .nice_icb_rsp_ready(demo_rsp_ready),
         .nice_icb_rsp_rdata(nice_icb_rsp_rdata), .nice_icb_rsp_err(nice_icb_rsp_err)
     );
-    xu_nice_drain8 u_drain8 (
+    xu_nice_drain8 #(.DIRECT_ENABLE(1)) u_drain8 (
+    .xu_direct_capable(xu_direct_capable), .xu_direct_claim(xu_direct_claim),
+    .xu_direct_valid(xu_direct_valid), .xu_direct_ready(xu_direct_ready),
+    .xu_direct_payload(xu_direct_payload), .xu_direct_status(xu_direct_status),
+    .xu_direct_commit(xu_direct_commit), .xu_direct_commit_ready(xu_direct_commit_ready),
+    .xu_direct_commit_err(xu_direct_commit_err),
         .nice_clk(nice_clk), .nice_rst_n(nice_rst_n), .nice_active(),
         .nice_mem_holdup(drain_hold),
         .nice_req_valid(nice_req_valid && !owner_valid && request_drain),

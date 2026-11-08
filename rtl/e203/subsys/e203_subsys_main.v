@@ -466,7 +466,17 @@ module e203_subsys_main(
 
 
 
+  wire xu_direct_capable, xu_direct_claim, xu_direct_valid, xu_direct_ready;
+  wire [255:0] xu_direct_payload;
+  wire [31:0] xu_direct_status;
+  wire xu_direct_commit, xu_direct_commit_ready, xu_direct_commit_err;
+
   e203_cpu_top u_e203_cpu_top(
+    .xu_direct_capable(xu_direct_capable), .xu_direct_claim(xu_direct_claim),
+    .xu_direct_valid(xu_direct_valid), .xu_direct_ready(xu_direct_ready),
+    .xu_direct_payload(xu_direct_payload), .xu_direct_status(xu_direct_status),
+    .xu_direct_commit(xu_direct_commit), .xu_direct_commit_ready(xu_direct_commit_ready),
+    .xu_direct_commit_err(xu_direct_commit_err),
 
   .inspect_pc               (inspect_pc), 
   .inspect_dbg_irq          (inspect_dbg_irq      ),
@@ -714,6 +724,11 @@ e203_subsys_clint u_e203_subsys_clint(
 
   
   e203_subsys_perips u_e203_subsys_perips (
+    .xu_direct_capable(xu_direct_capable), .xu_direct_claim(xu_direct_claim),
+    .xu_direct_valid(xu_direct_valid), .xu_direct_ready(xu_direct_ready),
+    .xu_direct_payload(xu_direct_payload), .xu_direct_status(xu_direct_status),
+    .xu_direct_commit(xu_direct_commit), .xu_direct_commit_ready(xu_direct_commit_ready),
+    .xu_direct_commit_err(xu_direct_commit_err),
     .pllbypass   (pllbypass   ),
     .pll_RESET   (pll_RESET   ),
     .pll_ASLEEP  (pll_ASLEEP  ),

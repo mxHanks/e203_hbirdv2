@@ -8,7 +8,18 @@
  * 使用 E203 ICB 总线结构里面预留的 o15 输出通道
  */
 
-module accel_icb_slave (
+module accel_icb_slave #(parameter DIRECT_ENABLE=0) (
+    // Same hfclk domain. Common asynchronous reset assertion; NICE release
+    // uses the CPU's existing synchronized rst_aon. No CPU control changes.
+    output                         xu_direct_capable,
+    input                        xu_direct_claim,
+    output                         xu_direct_valid,
+    input                        xu_direct_ready,
+    output [255:0]                 xu_direct_payload,
+    output [31:0]                  xu_direct_status,
+    input                        xu_direct_commit,
+    output                         xu_direct_commit_ready,
+    output                         xu_direct_commit_err,
     input  wire        clk,
     input  wire        rst_n,
 
@@ -74,6 +85,25 @@ module accel_icb_slave (
     localparam [11:0] REG_PAIRED_HI_CAP = 12'h0E0;
     localparam [31:0] XU_PAIRED_HI_CAP = 32'h58480001;
     // S3 adds signed32 RNE snapshots without changing the signed48 FIFO.
+    localparam [11:0] REG_DIRECT_CAP=12'h0F0, REG_DIRECT_CTRL=12'h0F4;
+    localparam [31:0] XU_DIRECT_CAP=32'h59440001;
+    reg direct_enabled;
+    localparam [2:0] D_IDLE=0, D_CAPTURE=1, D_VALID=2, D_OWNED=3, D_DONE=4;
+    reg [2:0] direct_state, direct_lane;
+    reg [255:0] direct_payload;
+    reg [31:0] direct_status;
+    wire direct_claim = DIRECT_ENABLE && direct_enabled && xu_direct_claim;
+    wire mmio_row_pop = rsp_valid && rsp_ready && rsp_row_pop;
+    wire direct_row_pop = xu_direct_commit && xu_direct_commit_ready && !xu_direct_commit_err;
+    assign xu_direct_capable = DIRECT_ENABLE && direct_enabled;
+    assign xu_direct_valid = direct_state==D_VALID;
+    assign xu_direct_payload = direct_payload;
+    assign xu_direct_status = direct_status;
+    assign xu_direct_commit_ready = direct_state==D_OWNED;
+    assign xu_direct_commit_err = !row_active || !row_valid || row_group!=direct_status[10:6];
+    wire direct_mmio_conflict = direct_claim &&
+        ((cmd_addr[11:0]>=12'h100 && cmd_addr[11:0]<=12'h1A3) ||
+         cmd_addr[11:0]==12'h0C8);
     localparam [11:0] REG_Y32_CAP = 12'h0E4;
     localparam [31:0] XU_Y32_CAP = 32'h59330001;
     // NICE read-pop transport uses a separate lane7 aperture. Ordinary
@@ -94,7 +124,7 @@ module accel_icb_slave (
     reg row_start;
     // Metadata follows the one response slot. No head movement at acceptance.
     reg rsp_row_pop;
-    wire row_pop = rsp_valid && rsp_ready && rsp_row_pop;
+    wire row_pop = mmio_row_pop || direct_row_pop;
     wire row_protected_write = !cmd_read && (row_active || row_start) &&
         ((cmd_addr[11:0] >= REG_GROUP && cmd_addr[11:0] <= REG_BIAS_HI) ||
          (cmd_addr[11:0] >= REG_CACHE_CTRL && cmd_addr[11:0] <= REG_CACHE_HI) ||
@@ -187,6 +217,45 @@ module accel_icb_slave (
         end
     endfunction
 
+    wire [2:0] y32_convert_lane = direct_state==D_CAPTURE ? direct_lane : y32_read_lane;
+    wire [31:0] y32_converted = y32_rne(row_result[y32_convert_lane]);
+
+    // The claim owns the FIFO head. Any previously accepted MMIO POP must
+    // retire before capture; overlapping new result/POP commands return error.
+    // Sequential lane capture reuses one RNE datapath. Only D_VALID publishes
+    // the atomically completed bundle; it and metadata stay stable under stall.
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            direct_state <= D_IDLE;
+            direct_lane <= 0;
+            direct_payload <= 0;
+            direct_status <= 0;
+        end else if (!direct_claim) direct_state <= D_IDLE;
+        else case (direct_state)
+            D_IDLE: if (!rsp_row_pop && !mmio_row_pop) begin
+                direct_status <= {2'b0, row_retired, 2'b0, row_produced,
+                    5'b0, row_group, row_count, row_running,
+                    (row_produced==32), row_valid, row_active};
+                direct_lane <= 0;
+                direct_state <= row_active && row_valid ? D_CAPTURE : D_VALID;
+            end
+            D_CAPTURE: begin
+`ifndef SYNTHESIS
+                if ((^row_result[direct_lane]) === 1'bx ||
+                    $signed(row_result[direct_lane]) < -48'sd618473193472 ||
+                    $signed(row_result[direct_lane]) > 48'sd618475290623)
+                    $fatal(1,"XU_DIRECT_Y32_RANGE_OR_UNKNOWN lane=%0d",direct_lane);
+`endif
+                direct_payload[32*direct_lane +: 32] <= y32_converted;
+                if (direct_lane==7) direct_state <= D_VALID;
+                else direct_lane <= direct_lane+1'b1;
+            end
+            D_VALID: if (xu_direct_valid && xu_direct_ready) direct_state <= D_OWNED;
+            D_OWNED: if (xu_direct_commit && xu_direct_commit_ready) direct_state <= D_DONE;
+            default: begin end
+        endcase
+    end
+
     // One captured stream beat owns the scalar core write port until commit.
     // Its response cannot retire before the sampled internal write edge.
     assign cmd_ready = (!rsp_valid || rsp_ready) && !stream_pending && !cache_pending &&
@@ -268,6 +337,7 @@ module accel_icb_slave (
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
+            direct_enabled <= 0;
             rsp_valid       <= 1'b0;
             rsp_err         <= 1'b0;
             w_cursor        <= 15'b0;
@@ -366,7 +436,10 @@ module accel_icb_slave (
 
                 if (cmd_valid) begin
                     rsp_err <= 1'b0;
-                    if (cache_dispatch || clear_dispatch) begin
+                    if (direct_mmio_conflict) begin
+                        rsp_err <= 1'b1;
+                        rsp_rdata <= 0;
+                    end else if (cache_dispatch || clear_dispatch) begin
                         cache_pending <= 1'b1;
                         cache_pending_high <= cache_high;
                         cache_pending_clear <= clear_dispatch;
@@ -389,7 +462,7 @@ module accel_icb_slave (
                                 $fatal(1, "XU_Y32_RANGE_ERROR lane=%0d y48=%h legal=[-618473193472,618475290623]",
                                     y32_read_lane, row_result[y32_read_lane]);
 `endif
-                            rsp_rdata <= y32_rne(row_result[y32_read_lane]);
+                            rsp_rdata <= y32_converted;
                             if (y32_read_pop) rsp_row_pop <= 1'b1;
                         end
                     end else if (cmd_addr[11:0] >= 12'h140 && cmd_addr[11:0] <= 12'h14f) begin
@@ -419,6 +492,8 @@ module accel_icb_slave (
                             REG_PAIRED_HI_CAP:
                                 rsp_rdata <= XU_PAIRED_HI_CAP;
 
+                            REG_DIRECT_CAP: rsp_rdata <= DIRECT_ENABLE ? XU_DIRECT_CAP : 0;
+                            REG_DIRECT_CTRL: rsp_rdata <= {31'b0,direct_enabled};
                             REG_Y32_CAP:
                                 rsp_rdata <= XU_Y32_CAP;
                             REG_BIAS_SRAM_CAP:
@@ -558,6 +633,11 @@ module accel_icb_slave (
                         case (cmd_addr[11:0])
                             // Unsupported or malformed clear is a completed
                             // error response, never permanent command backpressure.
+                            REG_DIRECT_CTRL: begin
+                                if (!DIRECT_ENABLE || busy || direct_state!=D_IDLE ||
+                                    cmd_wmask!=4'hf || cmd_wdata>1) rsp_err <= 1'b1;
+                                else direct_enabled <= cmd_wdata[0];
+                            end
                             REG_BIAS_CLEAR: begin
                                 rsp_rdata <= 32'b0;
                                 rsp_err <= 1'b1;
