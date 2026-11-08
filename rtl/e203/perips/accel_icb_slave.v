@@ -76,6 +76,11 @@ module accel_icb_slave (
     // S3 adds signed32 RNE snapshots without changing the signed48 FIFO.
     localparam [11:0] REG_Y32_CAP = 12'h0E4;
     localparam [31:0] XU_Y32_CAP = 32'h59330001;
+    // NICE read-pop transport uses a separate lane7 aperture. Ordinary
+    // Y32 reads and the explicit POP register retain their original behavior.
+    localparam [11:0] REG_Y32_LANE7_POP = 12'h1A0;
+    wire y32_read_pop = cmd_addr[11:0] == REG_Y32_LANE7_POP;
+    wire [2:0] y32_read_lane = y32_read_pop ? 3'd7 : cmd_addr[4:2];
     localparam [11:0] REG_BIAS_CLEAR = 12'h0E8;
     localparam [11:0] REG_BIAS_SRAM_CAP = 12'h0EC;
     localparam [11:0] REG_ROW_CTRL = 12'h0C0;
@@ -366,23 +371,26 @@ module accel_icb_slave (
                         cache_pending_high <= cache_high;
                         cache_pending_clear <= clear_dispatch;
                         rsp_valid <= 1'b0;
-                    end else if (cmd_addr[11:0] >= 12'h180 && cmd_addr[11:0] <= 12'h19f) begin
+                    end else if (cmd_addr[11:0] >= 12'h180 && cmd_addr[11:0] <= 12'h1a3) begin
                         // Capture the selected head at command acceptance.
-                        // Reads never POP; the response slot owns this snapshot.
+                        // Only the new aligned alias attaches a POP descriptor.
+                        // The response slot owns both data and side effect until
+                        // successful response retirement; old reads never POP.
                         rsp_rdata <= 0;
                         if (!cmd_read || cmd_addr[1:0] != 0 ||
                             !row_active || !row_valid || row_pop) rsp_err <= 1'b1;
                         else begin
 `ifndef SYNTHESIS
-                            if ((^row_result[cmd_addr[4:2]]) === 1'bx)
+                            if ((^row_result[y32_read_lane]) === 1'bx)
                                 $fatal(1, "XU_Y32_UNKNOWN_ERROR lane=%0d y48=%h",
-                                    cmd_addr[4:2], row_result[cmd_addr[4:2]]);
-                            if ($signed(row_result[cmd_addr[4:2]]) < -48'sd618473193472 ||
-                                $signed(row_result[cmd_addr[4:2]]) > 48'sd618475290623)
+                                    y32_read_lane, row_result[y32_read_lane]);
+                            if ($signed(row_result[y32_read_lane]) < -48'sd618473193472 ||
+                                $signed(row_result[y32_read_lane]) > 48'sd618475290623)
                                 $fatal(1, "XU_Y32_RANGE_ERROR lane=%0d y48=%h legal=[-618473193472,618475290623]",
-                                    cmd_addr[4:2], row_result[cmd_addr[4:2]]);
+                                    y32_read_lane, row_result[y32_read_lane]);
 `endif
-                            rsp_rdata <= y32_rne(row_result[cmd_addr[4:2]]);
+                            rsp_rdata <= y32_rne(row_result[y32_read_lane]);
+                            if (y32_read_pop) rsp_row_pop <= 1'b1;
                         end
                     end else if (cmd_addr[11:0] >= 12'h140 && cmd_addr[11:0] <= 12'h14f) begin
                         // Both halves come from one owned head and enter the

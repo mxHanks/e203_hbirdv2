@@ -5,7 +5,9 @@
 // Success returns err=0/rdat=0. Failure returns err=1/nonzero rdat, held
 // together with valid until the CPU accepts the completion. Software MUST
 // inspect rdat: the fixed E203 core does not convert NICE err into a trap.
-// No rollback: a POP may already have retired if the last shared write fails.
+// Read-pop transport: lane7 uses the separate 0x1a0 alias. No rollback:
+// the FIFO head has retired before any shared write; any failure aborts the task.
+// Requires the matching accelerator read-pop alias; instruction ABI is unchanged.
 // Any failure aborts the whole task; never blindly retry a partial drain.
 `include "e203_defines.v"
 
@@ -37,14 +39,14 @@ module xu_nice_drain8 (
 );
     localparam [3:0] IDLE=0, SEND_POLL=1, WAIT_POLL=2,
                      SEND_READ=3, WAIT_READ=4, SEND_WRITE=5, WAIT_WRITE=6,
-                     SEND_POP=7, WAIT_POP=8, SEND_LAST=9, WAIT_LAST=10, RESP=11;
+                     RESP=11;
     // Frozen software return codes. Bus error location is available in the
     // transaction trace; every bus-error phase returns the same nonzero code.
     localparam [31:0] ERR_INSTRUCTION=1, ERR_ALIGNMENT=2, ERR_RANGE=3,
                       ERR_POLL_LIMIT=4, ERR_TIMEOUT=5, ERR_GROUP=6,
                       ERR_ROW_STATE=7, ERR_BUS=8;
-    localparam [31:0] ROW_STATUS=32'h100420c4, ROW_POP=32'h100420c8;
-    localparam [31:0] Y32_LANES=32'h10042180;
+    localparam [31:0] ROW_STATUS=32'h100420c4;
+    localparam [31:0] Y32_LANES=32'h10042180, Y32_LANE7_POP=32'h100421a0;
     localparam [31:0] Y_FIRST=32'ha0020000, Y_LAST_GROUP=32'ha0038be0;
 
     reg [3:0] state;
@@ -53,10 +55,8 @@ module xu_nice_drain8 (
     reg [26:0] polls_left;
     reg [2:0] lane;
     reg [31:0] snapshot [0:7];
-    wire send_command = state==SEND_POLL || state==SEND_READ ||
-                        state==SEND_WRITE || state==SEND_POP || state==SEND_LAST;
-    wire outstanding = state==WAIT_POLL || state==WAIT_READ ||
-                       state==WAIT_WRITE || state==WAIT_POP || state==WAIT_LAST;
+    wire send_command = state==SEND_POLL || state==SEND_READ || state==SEND_WRITE;
+    wire outstanding = state==WAIT_POLL || state==WAIT_READ || state==WAIT_WRITE;
     wire command_fire = nice_icb_cmd_valid && nice_icb_cmd_ready;
     wire response_fire = nice_icb_rsp_valid && nice_icb_rsp_ready;
     wire instruction_ok = nice_req_inst[6:0]==7'h7b &&
@@ -82,21 +82,12 @@ module xu_nice_drain8 (
         nice_icb_cmd_wdata = 0;
         case (state)
             SEND_POLL: nice_icb_cmd_addr = ROW_STATUS;
-            SEND_READ: nice_icb_cmd_addr = Y32_LANES + {27'b0,lane,2'b0};
+            SEND_READ: nice_icb_cmd_addr = lane==7 ? Y32_LANE7_POP :
+                                                    Y32_LANES + {27'b0,lane,2'b0};
             SEND_WRITE: begin
                 nice_icb_cmd_addr = destination + {27'b0,lane,2'b0};
                 nice_icb_cmd_read = 0;
                 nice_icb_cmd_wdata = snapshot[lane];
-            end
-            SEND_POP: begin
-                nice_icb_cmd_addr = ROW_POP;
-                nice_icb_cmd_read = 0;
-                nice_icb_cmd_wdata = 1;
-            end
-            SEND_LAST: begin
-                nice_icb_cmd_addr = destination + 32'd28;
-                nice_icb_cmd_read = 0;
-                nice_icb_cmd_wdata = snapshot[7];
             end
             default: begin end
         endcase
@@ -179,23 +170,11 @@ module xu_nice_drain8 (
                     if (nice_icb_rsp_err) begin
                         completion_code <= ERR_BUS;
                         state <= RESP;
-                    end else if (lane==6) state <= SEND_POP;
+                    end else if (lane==7) state <= RESP;
                     else begin
                         lane <= lane+1'b1;
                         state <= SEND_WRITE;
                     end
-                end
-                SEND_POP: if (command_fire) state <= WAIT_POP;
-                WAIT_POP: if (response_fire) begin
-                    if (nice_icb_rsp_err) begin
-                        completion_code <= ERR_BUS;
-                        state <= RESP;
-                    end else state <= SEND_LAST;
-                end
-                SEND_LAST: if (command_fire) state <= WAIT_LAST;
-                WAIT_LAST: if (response_fire) begin
-                    if (nice_icb_rsp_err) completion_code <= ERR_BUS;
-                    state <= RESP;
                 end
                 RESP: if (nice_rsp_valid && nice_rsp_ready) state <= IDLE;
                 default: begin
