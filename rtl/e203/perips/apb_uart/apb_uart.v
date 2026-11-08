@@ -163,6 +163,7 @@ module apb_uart_sv
         trigger_level_n = trigger_level_q;
 
         fifo_tx_valid   = 1'b0;        
+        fifo_tx_data  = PWDATA[7:0];
         tx_fifo_clr_n   = 1'b0; // self clearing
         rx_fifo_clr_n   = 1'b0; // self clearing
 
@@ -184,7 +185,6 @@ module apb_uart_sv
 		    if (regs_q[(LCR * 8) + 7]) begin // Divisor Latch Access Bit (DLAB)
                         regs_n[(DLL + 'd8) * 8+:8] = PWDATA[7:0];
 		    end else begin
-                        fifo_tx_data  = PWDATA[7:0];
                         fifo_tx_valid = 1'b1;
                     end
                 end
