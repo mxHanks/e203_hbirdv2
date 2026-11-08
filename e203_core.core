@@ -59,6 +59,7 @@ filesets:
 
   nice:
     files:
+      - rtl/e203/subsys/xu_nice_drain8.v
       - rtl/e203/subsys/e203_subsys_nice_core.v
     file_type : verilogSource
 

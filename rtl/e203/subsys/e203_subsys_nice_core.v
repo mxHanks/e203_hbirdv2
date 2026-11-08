@@ -26,6 +26,114 @@
 
 `ifdef E203_HAS_NICE//{
 module e203_subsys_nice_core (
+    input                         nice_clk,
+    input                         nice_rst_n,
+    output                        nice_active,
+    output                        nice_mem_holdup,
+    input                         nice_req_valid,
+    output                        nice_req_ready,
+    input  [`E203_XLEN-1:0]       nice_req_inst,
+    input  [`E203_XLEN-1:0]       nice_req_rs1,
+    input  [`E203_XLEN-1:0]       nice_req_rs2,
+    output                        nice_rsp_valid,
+    input                         nice_rsp_ready,
+    output [`E203_XLEN-1:0]       nice_rsp_rdat,
+    output                        nice_rsp_err,
+    output                        nice_icb_cmd_valid,
+    input                         nice_icb_cmd_ready,
+    output [`E203_ADDR_SIZE-1:0]  nice_icb_cmd_addr,
+    output                        nice_icb_cmd_read,
+    output [`E203_XLEN-1:0]       nice_icb_cmd_wdata,
+    output [1:0]                  nice_icb_cmd_size,
+    input                         nice_icb_rsp_valid,
+    output                        nice_icb_rsp_ready,
+    input  [`E203_XLEN-1:0]       nice_icb_rsp_rdata,
+    input                         nice_icb_rsp_err
+);
+    // The original demo completes only these three encodings. Other requests
+    // use drain8's checked decoder: only its exact new encoding can access
+    // memory; unsupported encodings return stable ERR_INSTRUCTION=1.
+    wire request_demo = nice_req_inst[6:0]==7'h7b &&
+        ((nice_req_inst[14:12]==3'b010 &&
+          (nice_req_inst[31:25]==7'h01 || nice_req_inst[31:25]==7'h02)) ||
+         (nice_req_inst[14:12]==3'b110 && nice_req_inst[31:25]==7'h06));
+    wire request_drain = !request_demo;
+    reg owner_valid, owner_drain;
+    wire select_drain = owner_valid ? owner_drain : request_drain;
+    wire demo_req_ready, demo_rsp_valid, demo_rsp_err, demo_hold;
+    wire demo_cmd_valid, demo_cmd_read, demo_rsp_ready;
+    wire [31:0] demo_rsp_data, demo_cmd_addr, demo_cmd_data;
+    wire [1:0] demo_cmd_size;
+    wire drain_req_ready, drain_rsp_valid, drain_rsp_err, drain_hold;
+    wire drain_cmd_valid, drain_cmd_read, drain_rsp_ready;
+    wire [31:0] drain_rsp_data, drain_cmd_addr, drain_cmd_data;
+    wire [1:0] drain_cmd_size;
+
+    assign nice_active = owner_valid || nice_req_valid;
+    assign nice_req_ready = !owner_valid && (select_drain ? drain_req_ready : demo_req_ready);
+    assign nice_rsp_valid = owner_valid && (owner_drain ? drain_rsp_valid : demo_rsp_valid);
+    assign nice_rsp_rdat = owner_drain ? drain_rsp_data : demo_rsp_data;
+    assign nice_rsp_err = owner_drain ? drain_rsp_err : demo_rsp_err;
+    assign nice_mem_holdup = select_drain ? drain_hold : demo_hold;
+    // A legacy instruction issues its first command with its request, before
+    // owner_valid is registered. Live decode selects that initial command.
+    assign nice_icb_cmd_valid = select_drain ? drain_cmd_valid : demo_cmd_valid;
+    assign nice_icb_cmd_addr = select_drain ? drain_cmd_addr : demo_cmd_addr;
+    assign nice_icb_cmd_read = select_drain ? drain_cmd_read : demo_cmd_read;
+    assign nice_icb_cmd_wdata = select_drain ? drain_cmd_data : demo_cmd_data;
+    assign nice_icb_cmd_size = select_drain ? drain_cmd_size : demo_cmd_size;
+    assign nice_icb_rsp_ready = owner_valid && (owner_drain ? drain_rsp_ready : demo_rsp_ready);
+
+    always @(posedge nice_clk or negedge nice_rst_n) begin
+        if (!nice_rst_n) begin
+            owner_valid <= 0;
+            owner_drain <= 0;
+        end else if (nice_rsp_valid && nice_rsp_ready) begin
+            owner_valid <= 0;
+        end else if (nice_req_valid && nice_req_ready) begin
+            owner_valid <= 1;
+            owner_drain <= request_drain;
+        end
+    end
+
+    e203_subsys_nice_demo u_demo (
+        .nice_clk(nice_clk), .nice_rst_n(nice_rst_n), .nice_active(),
+        .nice_mem_holdup(demo_hold),
+        .nice_req_valid(nice_req_valid && !owner_valid && !request_drain),
+        .nice_req_ready(demo_req_ready), .nice_req_inst(nice_req_inst),
+        .nice_req_rs1(nice_req_rs1), .nice_req_rs2(nice_req_rs2),
+        .nice_rsp_valid(demo_rsp_valid),
+        .nice_rsp_ready(nice_rsp_ready && owner_valid && !owner_drain),
+        .nice_rsp_rdat(demo_rsp_data), .nice_rsp_err(demo_rsp_err),
+        .nice_icb_cmd_valid(demo_cmd_valid),
+        .nice_icb_cmd_ready(nice_icb_cmd_ready && !select_drain),
+        .nice_icb_cmd_addr(demo_cmd_addr), .nice_icb_cmd_read(demo_cmd_read),
+        .nice_icb_cmd_wdata(demo_cmd_data), .nice_icb_cmd_size(demo_cmd_size),
+        .nice_icb_rsp_valid(nice_icb_rsp_valid && owner_valid && !owner_drain),
+        .nice_icb_rsp_ready(demo_rsp_ready),
+        .nice_icb_rsp_rdata(nice_icb_rsp_rdata), .nice_icb_rsp_err(nice_icb_rsp_err)
+    );
+    xu_nice_drain8 u_drain8 (
+        .nice_clk(nice_clk), .nice_rst_n(nice_rst_n), .nice_active(),
+        .nice_mem_holdup(drain_hold),
+        .nice_req_valid(nice_req_valid && !owner_valid && request_drain),
+        .nice_req_ready(drain_req_ready), .nice_req_inst(nice_req_inst),
+        .nice_req_rs1(nice_req_rs1), .nice_req_rs2(nice_req_rs2),
+        .nice_rsp_valid(drain_rsp_valid),
+        .nice_rsp_ready(nice_rsp_ready && owner_valid && owner_drain),
+        .nice_rsp_rdat(drain_rsp_data), .nice_rsp_err(drain_rsp_err),
+        .nice_icb_cmd_valid(drain_cmd_valid),
+        .nice_icb_cmd_ready(nice_icb_cmd_ready && select_drain),
+        .nice_icb_cmd_addr(drain_cmd_addr), .nice_icb_cmd_read(drain_cmd_read),
+        .nice_icb_cmd_wdata(drain_cmd_data), .nice_icb_cmd_size(drain_cmd_size),
+        .nice_icb_rsp_valid(nice_icb_rsp_valid && owner_valid && owner_drain),
+        .nice_icb_rsp_ready(drain_rsp_ready),
+        .nice_icb_rsp_rdata(nice_icb_rsp_rdata), .nice_icb_rsp_err(nice_icb_rsp_err)
+    );
+endmodule
+
+// The original demo body below is preserved byte-for-byte except module name.
+module e203_subsys_nice_demo (
     // System	
     input                         nice_clk             ,
     input                         nice_rst_n	          ,

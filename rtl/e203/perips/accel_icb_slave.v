@@ -73,6 +73,11 @@ module accel_icb_slave (
     // xu S2e packs two HI16 values; all old HI reads stay zero-extended.
     localparam [11:0] REG_PAIRED_HI_CAP = 12'h0E0;
     localparam [31:0] XU_PAIRED_HI_CAP = 32'h58480001;
+    // S3 adds signed32 RNE snapshots without changing the signed48 FIFO.
+    localparam [11:0] REG_Y32_CAP = 12'h0E4;
+    localparam [31:0] XU_Y32_CAP = 32'h59330001;
+    localparam [11:0] REG_BIAS_CLEAR = 12'h0E8;
+    localparam [11:0] REG_BIAS_SRAM_CAP = 12'h0EC;
     localparam [11:0] REG_ROW_CTRL = 12'h0C0;
     localparam [11:0] REG_ROW_STATUS = 12'h0C4;
     localparam [11:0] REG_ROW_POP = 12'h0C8;
@@ -121,25 +126,34 @@ module accel_icb_slave (
     reg [2:0] result_index_reg;
     reg cache_enable;
     reg [7:0] cache_addr_reg;
-    wire [39:0] cache_read_data;
-    wire cache_write_lo = cmd_valid && cmd_ready && !cmd_read &&
-                          cmd_addr[11:0] == REG_CACHE_LO && !row_active && !row_start;
-    wire cache_write_hi = cmd_valid && cmd_ready && !cmd_read &&
-                          cmd_addr[11:0] == REG_CACHE_HI && !row_active && !row_start;
-    wire [39:0] cache_write_data = cache_write_hi ?
-        {cmd_wdata[7:0], 32'b0} : {8'b0, cmd_wdata};
-    wire [4:0] cache_write_mask = cache_write_hi ?
-        {cmd_wmask[0], 4'b0} : {1'b0, cmd_wmask};
-
     reg core_start;
     reg manual_busy;
     wire busy = manual_busy || row_active || row_start;
     reg done_sticky;
+    wire [39:0] cache_read_data;
+    wire cache_access = cmd_addr[11:0] == REG_CACHE_LO || cmd_addr[11:0] == REG_CACHE_HI;
+    wire cache_high = cmd_addr[11:0] == REG_CACHE_HI;
+    wire cache_cmd_ready, cache_rsp_valid, cache_rsp_error, cache_idle;
+    wire cache_clear_ready, cache_clear_done;
+    wire [31:0] bias_sram_capability;
+    reg cache_pending, cache_pending_high, cache_pending_clear;
+    wire cache_legal = cmd_read || (!busy && !core_start);
+    wire cache_dispatch = cache_access && cache_legal;
+    wire clear_dispatch = !cmd_read && cmd_addr[11:0] == REG_BIAS_CLEAR &&
+        cmd_wmask == 4'hf && cmd_wdata == 1 && !busy && !core_start && cache_idle &&
+        bias_sram_capability != 0;
+    wire cache_command = cmd_valid && cmd_ready && cache_dispatch;
+    wire clear_command = cmd_valid && cmd_ready && clear_dispatch;
+    wire cache_response_ready = cache_pending && !cache_pending_clear && (!rsp_valid || rsp_ready);
+    wire [39:0] cache_write_data = cache_high ?
+        {cmd_wdata[7:0], 32'b0} : {8'b0, cmd_wdata};
+    wire [4:0] cache_write_mask = cache_high ?
+        {cmd_wmask[0], 4'b0} : {1'b0, cmd_wmask};
 
     wire row_start_accept = cmd_valid && cmd_ready && !cmd_read &&
         cmd_addr[11:0] == REG_ROW_CTRL && cmd_wmask == 4'hf &&
         cmd_wdata == 32'd1 && cache_enable && !busy && !row_start &&
-        !core_start && !x_load_wen && !w_load_wen && row_count == 0;
+        !core_start && !x_load_wen && !w_load_wen && cache_idle && row_count == 0;
 
     wire core_done;
 
@@ -154,9 +168,25 @@ module accel_icb_slave (
 
     integer i;
 
+    function [31:0] y32_rne;
+        input [47:0] value;
+        reg signed [47:0] quotient;
+        begin
+            // Arithmetic shift gives floor(value/512), including negatives.
+            // The low nine bits are its nonnegative remainder.
+            quotient = $signed(value) >>> 9;
+            if (value[8:0] > 9'd256 ||
+                (value[8:0] == 9'd256 && quotient[0]))
+                quotient = quotient + 48'sd1;
+            y32_rne = quotient[31:0];
+        end
+    endfunction
+
     // One captured stream beat owns the scalar core write port until commit.
     // Its response cannot retire before the sampled internal write edge.
-    assign cmd_ready = (!rsp_valid || rsp_ready) && !stream_pending;
+    assign cmd_ready = (!rsp_valid || rsp_ready) && !stream_pending && !cache_pending &&
+        (!cmd_valid || !cache_dispatch || cache_cmd_ready) &&
+        (!cmd_valid || !clear_dispatch || cache_clear_ready);
 
     // Chisel-generated calculation core.
     // E203 reset is active-low; Chisel reset is active-high.
@@ -184,7 +214,18 @@ module accel_icb_slave (
         .io_computeStart(compute_start),
         .io_group       (group_reg),
         .io_cacheEnable (cache_enable),
-        .io_cacheWriteEnable (cache_write_lo || cache_write_hi),
+        .io_cacheWriteEnable (cache_command && !cmd_read),
+        .io_cacheReadEnable (cache_command && cmd_read),
+        .io_cacheCmdReady (cache_cmd_ready),
+        .io_cacheRspValid (cache_rsp_valid),
+        .io_cacheRspReady (cache_response_ready),
+        .io_cacheRspError (cache_rsp_error),
+        .io_cacheIdle (cache_idle),
+        .io_cacheInvalidate (1'b0),
+        .io_cacheClearValid (clear_command),
+        .io_cacheClearReady (cache_clear_ready),
+        .io_cacheClearDone (cache_clear_done),
+        .io_biasSramCapability (bias_sram_capability),
         .io_cacheWriteAddr (cache_addr_reg),
         .io_cacheWriteData (cache_write_data),
         .io_cacheWriteMask (cache_write_mask),
@@ -227,6 +268,9 @@ module accel_icb_slave (
             w_cursor        <= 15'b0;
             x_cursor        <= 7'b0;
             stream_pending  <= 1'b0;
+            cache_pending <= 1'b0;
+            cache_pending_high <= 1'b0;
+            cache_pending_clear <= 1'b0;
             stream_is_w     <= 1'b0;
             stream_error    <= 1'b0;
             stream_bank     <= 3'b0;
@@ -299,12 +343,48 @@ module accel_icb_slave (
                 end
             end
 
+            // Commit the physical SRAM operation before publishing its ICB
+            // response. The response slot then owns this stable snapshot.
+            if (cache_pending && (!rsp_valid || rsp_ready)) begin
+                if ((cache_pending_clear && cache_clear_done) ||
+                    (!cache_pending_clear && cache_rsp_valid)) begin
+                    cache_pending <= 1'b0;
+                    rsp_valid <= 1'b1;
+                    rsp_err <= cache_pending_clear ? 1'b0 : cache_rsp_error;
+                    rsp_rdata <= cache_pending_clear ? 32'b0 :
+                        (cache_pending_high ? {24'b0, cache_read_data[39:32]} : cache_read_data[31:0]);
+                end
+            end
+
             if (cmd_ready) begin
                 rsp_valid <= cmd_valid;
 
                 if (cmd_valid) begin
                     rsp_err <= 1'b0;
-                    if (cmd_addr[11:0] >= 12'h140 && cmd_addr[11:0] <= 12'h14f) begin
+                    if (cache_dispatch || clear_dispatch) begin
+                        cache_pending <= 1'b1;
+                        cache_pending_high <= cache_high;
+                        cache_pending_clear <= clear_dispatch;
+                        rsp_valid <= 1'b0;
+                    end else if (cmd_addr[11:0] >= 12'h180 && cmd_addr[11:0] <= 12'h19f) begin
+                        // Capture the selected head at command acceptance.
+                        // Reads never POP; the response slot owns this snapshot.
+                        rsp_rdata <= 0;
+                        if (!cmd_read || cmd_addr[1:0] != 0 ||
+                            !row_active || !row_valid || row_pop) rsp_err <= 1'b1;
+                        else begin
+`ifndef SYNTHESIS
+                            if ((^row_result[cmd_addr[4:2]]) === 1'bx)
+                                $fatal(1, "XU_Y32_UNKNOWN_ERROR lane=%0d y48=%h",
+                                    cmd_addr[4:2], row_result[cmd_addr[4:2]]);
+                            if ($signed(row_result[cmd_addr[4:2]]) < -48'sd618473193472 ||
+                                $signed(row_result[cmd_addr[4:2]]) > 48'sd618475290623)
+                                $fatal(1, "XU_Y32_RANGE_ERROR lane=%0d y48=%h legal=[-618473193472,618475290623]",
+                                    cmd_addr[4:2], row_result[cmd_addr[4:2]]);
+`endif
+                            rsp_rdata <= y32_rne(row_result[cmd_addr[4:2]]);
+                        end
+                    end else if (cmd_addr[11:0] >= 12'h140 && cmd_addr[11:0] <= 12'h14f) begin
                         // Both halves come from one owned head and enter the
                         // response slot together. Only POP retirement releases it.
                         rsp_rdata <= 0;
@@ -330,6 +410,13 @@ module accel_icb_slave (
 
                             REG_PAIRED_HI_CAP:
                                 rsp_rdata <= XU_PAIRED_HI_CAP;
+
+                            REG_Y32_CAP:
+                                rsp_rdata <= XU_Y32_CAP;
+                            REG_BIAS_SRAM_CAP:
+                                rsp_rdata <= bias_sram_capability;
+                            REG_BIAS_CLEAR:
+                                rsp_rdata <= 0;
 
                             REG_SCRATCH:
                                 rsp_rdata <= scratch;
@@ -453,12 +540,20 @@ module accel_icb_slave (
                                 rsp_rdata <= 32'b0;
                         endcase
 
-                    end else if (row_protected_write) begin
+                    end else if (row_protected_write ||
+                        ((busy || core_start) && cmd_addr[11:0] >= REG_CACHE_CTRL &&
+                         cmd_addr[11:0] <= REG_CACHE_HI)) begin
                         // Unlike the historical manual path, autonomous rows
                         // own all operand storage through final POP retirement.
                         rsp_err <= 1'b1;
                     end else begin
                         case (cmd_addr[11:0])
+                            // Unsupported or malformed clear is a completed
+                            // error response, never permanent command backpressure.
+                            REG_BIAS_CLEAR: begin
+                                rsp_rdata <= 32'b0;
+                                rsp_err <= 1'b1;
+                            end
                             REG_ROW_CTRL: begin
                                 if (row_start_accept) row_start <= 1'b1;
                                 else rsp_err <= 1'b1;
@@ -479,9 +574,13 @@ module accel_icb_slave (
                             REG_CTRL: begin
                                 // CTRL[0] = START. Ignore while busy.
                                 if (cmd_wdata[0] && !busy) begin
-                                    core_start  <= 1'b1;
-                                    manual_busy <= 1'b1;
-                                    done_sticky <= 1'b0;
+                                    if (!cache_idle || core_start || x_load_wen || w_load_wen)
+                                        rsp_err <= 1'b1;
+                                    else begin
+                                        core_start  <= 1'b1;
+                                        manual_busy <= 1'b1;
+                                        done_sticky <= 1'b0;
+                                    end
                                 end
                             end
 
