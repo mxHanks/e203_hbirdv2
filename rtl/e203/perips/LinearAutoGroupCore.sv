@@ -178,7 +178,8 @@ module LinearAutoGroupCore(
   reg         manualCached;
   wire        launch =
     active & ~running & ~(produced[5]) & ~(count[1]) & (~io_cacheEnable | biasReady);
-  wire        enqueue = active & running & _core_io_done;
+  wire        _nextBiasDemand_T = active & running;
+  wire        enqueue = _nextBiasDemand_T & _core_io_done;
   wire        io_rowValid_0 = |count;
   wire        _selectedGroup_T_1 = manualPending | manualRunning;
   wire [4:0]  selectedGroup =
@@ -189,7 +190,9 @@ module LinearAutoGroupCore(
   reg         modeChanged_REG;
   wire        modeChanged = modeChanged_REG != io_cacheEnable;
   wire        _GEN = io_start & ~active;
-  assign biasReady = _biasCache_io_groupValid & _biasCache_io_groupTag == selectedGroup;
+  wire        nextBiasDemand = _nextBiasDemand_T & ~takeBias & produced < 6'h1F;
+  wire        _biasReady_T = _biasCache_io_groupTag == selectedGroup;
+  assign biasReady = _biasCache_io_groupValid & _biasReady_T;
   `ifndef SYNTHESIS
     wire _GEN_0 =
       ~active & ~manualPending & ~manualRunning & ~takeBias & ~io_start & ~io_rowStart;
@@ -265,15 +268,15 @@ module LinearAutoGroupCore(
         if (`STOP_COND_)
           $fatal;
       end
-      if (takeBias & ~reset & ~_biasCache_io_groupValid) begin
+      if (takeBias & ~reset & ~(_biasCache_io_groupValid & _biasReady_T)) begin
         if (`ASSERT_VERBOSE_COND_)
-          $error("Assertion failed at LinearAutoGroupCore.scala:166\n");
+          $error("Assertion failed: Compute INIT must consume its own bias group\n");
         if (`STOP_COND_)
           $fatal;
       end
       if (~reset & io_cacheWriteEnable & io_cacheReadEnable) begin
         if (`ASSERT_VERBOSE_COND_)
-          $error("Assertion failed at LinearAutoGroupCore.scala:196\n");
+          $error("Assertion failed at LinearAutoGroupCore.scala:207\n");
         if (`STOP_COND_)
           $fatal;
       end
@@ -446,8 +449,9 @@ module LinearAutoGroupCore(
     .io_rspData       (io_cacheReadData),
     .io_hostIdle      (_biasCache_io_hostIdle),
     .io_groupReqValid
-      (io_cacheEnable & (active & ~running & ~(produced[5]) | ~active & manualPending)),
-    .io_groupReqTag   (selectedGroup),
+      (io_cacheEnable
+       & (active & ~running & ~(produced[5]) | nextBiasDemand | ~active & manualPending)),
+    .io_groupReqTag   (nextBiasDemand ? produced[4:0] + 5'h1 : selectedGroup),
     .io_groupValid    (_biasCache_io_groupValid),
     .io_groupTag      (_biasCache_io_groupTag),
     .io_groupBias_0   (_biasCache_io_groupBias_0),
