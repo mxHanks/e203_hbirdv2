@@ -32,7 +32,9 @@ module e203_soc_top #(
   input ext_sysmem_rsp_err,
   input [31:0] ext_sysmem_rsp_rdata,
 
-    // This clock should comes from the crystal pad generated high speed clock (16MHz)
+  output shared_mem_clk,
+  output shared_mem_rst_n,
+  // This clock should comes from the crystal pad generated high speed clock (16MHz)
   input  hfextclk,
   output hfxoscen,// The signal to enable the crystal pad generated clock
 
@@ -117,6 +119,8 @@ module e203_soc_top #(
  assign sysmem_icb_cmd_ready = EXTERNAL_SYSMEM ? ext_sysmem_cmd_ready : sysmem_icb_rsp_ready;
 
  e203_subsys_top u_e203_subsys_top(
+    .shared_mem_clk(shared_mem_clk),
+    .shared_mem_rst_n(shared_mem_rst_n),
     .core_mhartid      (1'b0),
   
 

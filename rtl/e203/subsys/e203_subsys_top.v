@@ -29,6 +29,8 @@
 `include "e203_defines.v"
 
 module e203_subsys_top(
+  output shared_mem_clk,
+  output shared_mem_rst_n,
   // This clock should comes from the crystal pad generated high speed clock (16MHz)
   input  hfextclk,
   output hfxoscen,// The signal to enable the crystal pad generated clock
@@ -312,6 +314,8 @@ module e203_subsys_top(
 
 
   e203_subsys_main  u_e203_subsys_main(
+    .shared_mem_clk(shared_mem_clk),
+    .shared_mem_rst_n(shared_mem_rst_n),
     .pc_rtvec        (pc_rtvec),
 
     .inspect_mode    (inspect_mode    ), 

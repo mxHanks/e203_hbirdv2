@@ -30,6 +30,9 @@
 
 
 module e203_subsys_main(
+  // Public clock/reset ownership for the external shared-memory endpoint.
+  output shared_mem_clk,
+  output shared_mem_rst_n,
   output core_csr_clk,
 
   output hfxoscen,// The signal to enable the crystal pad generated clock
@@ -373,6 +376,8 @@ module e203_subsys_main(
   wire core_rst_n = main_rst_n;
   wire bus_rst_n  = main_rst_n;
   wire per_rst_n  = main_rst_n;
+  assign shared_mem_clk = hfclk;
+  assign shared_mem_rst_n = bus_rst_n;
 `endif//}
 
 
