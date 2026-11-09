@@ -4,6 +4,9 @@
 // one Y row and rs1's row offset equals group*32. Direct capability is required.
 // Each group polls, snapshots eight, POPs, then waits for eight shared-write
 // responses before beginning the next group. Only the final group completes.
+// Optional ready drainN: funct7=0x24 uses the same descriptor, but the limit
+// counts READY_WAIT edges per group. With claim low, status[31] advertises
+// live status; ready wins on the final budget edge. No ROW_STATUS reads.
 // Any first error aborts the complete instruction/task; partial POPs cannot retry.
 // rs1: 32-byte-aligned Y32 destination in [0xa0020000, 0xa0038be0].
 // rs2: [4:0] expected FIFO head group, [31:5] nonzero status-poll limit.
@@ -56,7 +59,7 @@ module xu_nice_drain8 #(parameter DIRECT_ENABLE=0) (
 );
     localparam [3:0] IDLE=0, SEND_POLL=1, WAIT_POLL=2,
                      SEND_READ=3, WAIT_READ=4, SEND_WRITE=5, WAIT_WRITE=6,
-                     DIRECT_WAIT=7, DIRECT_COMMIT=8, RESP=11;
+                     DIRECT_WAIT=7, DIRECT_COMMIT=8, READY_WAIT=9, RESP=11;
     // Frozen software return codes. Bus error location is available in the
     // transaction trace; every bus-error phase returns the same nonzero code.
     localparam [31:0] ERR_INSTRUCTION=1, ERR_ALIGNMENT=2, ERR_RANGE=3,
@@ -68,7 +71,7 @@ module xu_nice_drain8 #(parameter DIRECT_ENABLE=0) (
                       Y_END=32'ha0038c00;
 
     reg [3:0] state;
-    reg direct_mode;
+    reg direct_mode, ready_mode;
     reg [31:0] destination, completion_code;
     reg [4:0] expected_group;
     reg [26:0] polls_left, poll_limit;
@@ -79,18 +82,21 @@ module xu_nice_drain8 #(parameter DIRECT_ENABLE=0) (
     wire outstanding = state==WAIT_POLL || state==WAIT_READ || state==WAIT_WRITE;
     wire command_fire = nice_icb_cmd_valid && nice_icb_cmd_ready;
     wire response_fire = nice_icb_rsp_valid && nice_icb_rsp_ready;
-    wire is_drain_n = nice_req_inst[31:25]==7'h23;
+    wire is_ready_n = nice_req_inst[31:25]==7'h24;
+    wire is_drain_n = nice_req_inst[31:25]==7'h23 || is_ready_n;
     wire [5:0] request_count = is_drain_n ? {1'b0,nice_req_rs2[9:5]}+6'd1 : 6'd1;
     wire [26:0] request_limit = is_drain_n ? {5'b0,nice_req_rs2[31:10]} : nice_req_rs2[31:5];
     wire [32:0] request_end = {1'b0,nice_req_rs1}+{22'b0,request_count,5'b0};
     wire instruction_ok = nice_req_inst[6:0]==7'h7b &&
                           nice_req_inst[14:12]==3'b111 &&
                           (nice_req_inst[31:25]==7'h20 ||
-                           (is_drain_n && DIRECT_ENABLE && xu_direct_capable));
+                           (nice_req_inst[31:25]==7'h23 && DIRECT_ENABLE && xu_direct_capable) ||
+                           (is_ready_n && DIRECT_ENABLE && xu_direct_capable &&
+                            xu_direct_status[31]));
     integer i;
 
-    // Keep the frozen poll limit: only retired LSU ROW_STATUS responses
-    // consume polls_left. Direct capture has no cycle timeout.
+    // For old 0x20/0x23, only retired ROW_STATUS responses consume polls_left.
+    // New 0x24 uses READY_WAIT edges. Direct capture has no cycle timeout.
     assign xu_direct_claim = direct_mode && (state==DIRECT_WAIT || state==DIRECT_COMMIT);
     assign xu_direct_ready = direct_mode && state==DIRECT_WAIT;
     assign xu_direct_commit = direct_mode && state==DIRECT_COMMIT;
@@ -127,6 +133,7 @@ module xu_nice_drain8 #(parameter DIRECT_ENABLE=0) (
         if (!nice_rst_n) begin
             state <= IDLE;
             direct_mode <= 0;
+            ready_mode <= 0;
             destination <= 0;
             completion_code <= 0;
             expected_group <= 0;
@@ -139,6 +146,7 @@ module xu_nice_drain8 #(parameter DIRECT_ENABLE=0) (
             case (state)
                 IDLE: if (nice_req_valid && nice_req_ready) begin
                     direct_mode <= 0;
+                    ready_mode <= is_ready_n;
                     if (DIRECT_ENABLE && xu_direct_capable) direct_mode <= 1;
                     destination <= nice_req_rs1;
                     expected_group <= nice_req_rs2[4:0];
@@ -165,7 +173,31 @@ module xu_nice_drain8 #(parameter DIRECT_ENABLE=0) (
                     end else if (request_limit==0) begin
                         completion_code <= ERR_POLL_LIMIT;
                         state <= RESP;
-                    end else state <= SEND_POLL;
+                    end else state <= is_ready_n ? READY_WAIT : SEND_POLL;
+                end
+                // Claim is deliberately low: the wrapper publishes live row
+                // metadata here. No bus command or POP occurs while waiting.
+                // Only these edges consume the ready budget; ready/error checks
+                // take priority over timeout on its final edge.
+                READY_WAIT: begin
+                    if (!xu_direct_capable || !xu_direct_status[31]) begin
+                        completion_code <= ERR_INSTRUCTION;
+                        state <= RESP;
+                    end else if (xu_direct_status[1]) begin
+                        if (!xu_direct_status[0]) begin
+                            completion_code <= ERR_ROW_STATE;
+                            state <= RESP;
+                        end else if (xu_direct_status[10:6]!=expected_group) begin
+                            completion_code <= ERR_GROUP;
+                            state <= RESP;
+                        end else begin
+                            lane <= 0;
+                            state <= DIRECT_WAIT;
+                        end
+                    end else if (polls_left==1) begin
+                        completion_code <= ERR_TIMEOUT;
+                        state <= RESP;
+                    end else polls_left <= polls_left-1'b1;
                 end
                 SEND_POLL: if (command_fire) state <= WAIT_POLL;
                 WAIT_POLL: if (response_fire) begin
@@ -244,7 +276,7 @@ module xu_nice_drain8 #(parameter DIRECT_ENABLE=0) (
                             destination <= destination+32;
                             polls_left <= poll_limit;
                             lane <= 0;
-                            state <= SEND_POLL;
+                            state <= ready_mode ? READY_WAIT : SEND_POLL;
                         end
                     end
                     else begin

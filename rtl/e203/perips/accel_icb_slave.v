@@ -98,7 +98,14 @@ module accel_icb_slave #(parameter DIRECT_ENABLE=0) (
     assign xu_direct_capable = DIRECT_ENABLE && direct_enabled;
     assign xu_direct_valid = direct_state==D_VALID;
     assign xu_direct_payload = direct_payload;
-    assign xu_direct_status = direct_status;
+    // The optional ready-drain instruction can wait without claiming the FIFO.
+    // Bit31 is a distinct live-status capability, only while direct is enabled.
+    // Claim ownership continues to expose the frozen bundle metadata exactly.
+    wire [31:0] live_row_status = {2'b0, row_retired, 2'b0, row_produced,
+        5'b0, row_group, row_count, row_running,
+        (row_produced==32), row_valid, row_active};
+    assign xu_direct_status = direct_claim ? direct_status :
+                              {xu_direct_capable,live_row_status[30:0]};
     assign xu_direct_commit_ready = direct_state==D_OWNED;
     assign xu_direct_commit_err = !row_active || !row_valid || row_group!=direct_status[10:6];
     wire direct_mmio_conflict = direct_claim &&
