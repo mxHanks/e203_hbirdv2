@@ -724,6 +724,11 @@ e203_subsys_clint u_e203_subsys_clint(
 
   
   e203_subsys_perips u_e203_subsys_perips (
+    .dma_cmd_valid(dma_cmd_valid), .dma_cmd_ready(dma_cmd_ready),
+    .dma_cmd_addr(dma_cmd_addr), .dma_cmd_read(dma_cmd_read),
+    .dma_cmd_wdata(dma_cmd_wdata), .dma_cmd_wmask(dma_cmd_wmask),
+    .dma_rsp_valid(dma_rsp_valid), .dma_rsp_ready(dma_rsp_ready),
+    .dma_rsp_err(dma_rsp_err), .dma_rsp_rdata(dma_rsp_rdata),
     .xu_direct_capable(xu_direct_capable), .xu_direct_claim(xu_direct_claim),
     .xu_direct_valid(xu_direct_valid), .xu_direct_ready(xu_direct_ready),
     .xu_direct_payload(xu_direct_payload), .xu_direct_status(xu_direct_status),
@@ -850,7 +855,60 @@ e203_subsys_clint u_e203_subsys_clint(
     .rst_n         (per_rst_n) 
   );
 
-e203_subsys_mems u_e203_subsys_mems(
+// Independent peripheral DMA shares the external SRAM port with the unchanged
+// CPU memory-fabric output. Root integration drives only the dma_* master.
+  wire cpu_sysmem_icb_cmd_valid, cpu_sysmem_icb_cmd_ready;
+  wire [31:0] cpu_sysmem_icb_cmd_addr, cpu_sysmem_icb_cmd_wdata;
+  wire [3:0] cpu_sysmem_icb_cmd_wmask;
+  wire cpu_sysmem_icb_cmd_read;
+  wire cpu_sysmem_icb_rsp_valid, cpu_sysmem_icb_rsp_ready, cpu_sysmem_icb_rsp_err;
+  wire [31:0] cpu_sysmem_icb_rsp_rdata;
+  wire dma_cmd_valid, dma_cmd_ready, dma_cmd_read;
+  wire [31:0] dma_cmd_addr, dma_cmd_wdata;
+  wire [3:0] dma_cmd_wmask;
+  wire dma_rsp_valid, dma_rsp_ready, dma_rsp_err;
+  wire [31:0] dma_rsp_rdata;
+
+`ifdef XU_MATRIX_DMA
+  xu_dma_shared_arb u_xu_dma_shared_arb (
+    .clk(hfclk), .rst_n(bus_rst_n),
+    .cpu_cmd_valid(cpu_sysmem_icb_cmd_valid), .cpu_cmd_ready(cpu_sysmem_icb_cmd_ready),
+    .cpu_cmd_addr(cpu_sysmem_icb_cmd_addr), .cpu_cmd_read(cpu_sysmem_icb_cmd_read),
+    .cpu_cmd_wdata(cpu_sysmem_icb_cmd_wdata), .cpu_cmd_wmask(cpu_sysmem_icb_cmd_wmask),
+    .cpu_rsp_valid(cpu_sysmem_icb_rsp_valid), .cpu_rsp_ready(cpu_sysmem_icb_rsp_ready),
+    .cpu_rsp_err(cpu_sysmem_icb_rsp_err), .cpu_rsp_rdata(cpu_sysmem_icb_rsp_rdata),
+    .dma_cmd_valid(dma_cmd_valid), .dma_cmd_ready(dma_cmd_ready),
+    .dma_cmd_addr(dma_cmd_addr), .dma_cmd_read(dma_cmd_read),
+    .dma_cmd_wdata(dma_cmd_wdata), .dma_cmd_wmask(dma_cmd_wmask),
+    .dma_rsp_valid(dma_rsp_valid), .dma_rsp_ready(dma_rsp_ready),
+    .dma_rsp_err(dma_rsp_err), .dma_rsp_rdata(dma_rsp_rdata),
+    .mem_cmd_valid(sysmem_icb_cmd_valid), .mem_cmd_ready(sysmem_icb_cmd_ready),
+    .mem_cmd_addr(sysmem_icb_cmd_addr), .mem_cmd_read(sysmem_icb_cmd_read),
+    .mem_cmd_wdata(sysmem_icb_cmd_wdata), .mem_cmd_wmask(sysmem_icb_cmd_wmask),
+    .mem_rsp_valid(sysmem_icb_rsp_valid), .mem_rsp_ready(sysmem_icb_rsp_ready),
+    .mem_rsp_err(sysmem_icb_rsp_err), .mem_rsp_rdata(sysmem_icb_rsp_rdata)
+  );
+
+`else
+  // Default build is the original direct sysmem connection, without a new
+  // arbitration boundary or outstanding limit on the historical fallback.
+  assign sysmem_icb_cmd_valid=cpu_sysmem_icb_cmd_valid;
+  assign cpu_sysmem_icb_cmd_ready=sysmem_icb_cmd_ready;
+  assign sysmem_icb_cmd_addr=cpu_sysmem_icb_cmd_addr;
+  assign sysmem_icb_cmd_read=cpu_sysmem_icb_cmd_read;
+  assign sysmem_icb_cmd_wdata=cpu_sysmem_icb_cmd_wdata;
+  assign sysmem_icb_cmd_wmask=cpu_sysmem_icb_cmd_wmask;
+  assign cpu_sysmem_icb_rsp_valid=sysmem_icb_rsp_valid;
+  assign sysmem_icb_rsp_ready=cpu_sysmem_icb_rsp_ready;
+  assign cpu_sysmem_icb_rsp_err=sysmem_icb_rsp_err;
+  assign cpu_sysmem_icb_rsp_rdata=sysmem_icb_rsp_rdata;
+  assign dma_cmd_ready=1'b0;
+  assign dma_rsp_valid=1'b0;
+  assign dma_rsp_err=1'b0;
+  assign dma_rsp_rdata=32'b0;
+`endif
+
+  e203_subsys_mems u_e203_subsys_mems(
 
     .mem_icb_cmd_valid  (mem_icb_cmd_valid),
     .mem_icb_cmd_ready  (mem_icb_cmd_ready),
@@ -864,17 +922,17 @@ e203_subsys_mems u_e203_subsys_mems(
     .mem_icb_rsp_err    (mem_icb_rsp_err  ),
     .mem_icb_rsp_rdata  (mem_icb_rsp_rdata),
 
-    .sysmem_icb_cmd_valid  (sysmem_icb_cmd_valid),
-    .sysmem_icb_cmd_ready  (sysmem_icb_cmd_ready),
-    .sysmem_icb_cmd_addr   (sysmem_icb_cmd_addr ),
-    .sysmem_icb_cmd_read   (sysmem_icb_cmd_read ),
-    .sysmem_icb_cmd_wdata  (sysmem_icb_cmd_wdata),
-    .sysmem_icb_cmd_wmask  (sysmem_icb_cmd_wmask),
+    .sysmem_icb_cmd_valid  (cpu_sysmem_icb_cmd_valid),
+    .sysmem_icb_cmd_ready  (cpu_sysmem_icb_cmd_ready),
+    .sysmem_icb_cmd_addr   (cpu_sysmem_icb_cmd_addr ),
+    .sysmem_icb_cmd_read   (cpu_sysmem_icb_cmd_read ),
+    .sysmem_icb_cmd_wdata  (cpu_sysmem_icb_cmd_wdata),
+    .sysmem_icb_cmd_wmask  (cpu_sysmem_icb_cmd_wmask),
     
-    .sysmem_icb_rsp_valid  (sysmem_icb_rsp_valid),
-    .sysmem_icb_rsp_ready  (sysmem_icb_rsp_ready),
-    .sysmem_icb_rsp_err    (sysmem_icb_rsp_err  ),
-    .sysmem_icb_rsp_rdata  (sysmem_icb_rsp_rdata),
+    .sysmem_icb_rsp_valid  (cpu_sysmem_icb_rsp_valid),
+    .sysmem_icb_rsp_ready  (cpu_sysmem_icb_rsp_ready),
+    .sysmem_icb_rsp_err    (cpu_sysmem_icb_rsp_err  ),
+    .sysmem_icb_rsp_rdata  (cpu_sysmem_icb_rsp_rdata),
  
     .qspi0_ro_icb_cmd_valid  (qspi0_ro_icb_cmd_valid), 
     .qspi0_ro_icb_cmd_ready  (qspi0_ro_icb_cmd_ready),

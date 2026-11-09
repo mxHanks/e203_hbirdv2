@@ -29,6 +29,12 @@
 
 
 module e203_subsys_perips(
+    // Independent peripheral master; original CPU interfaces are unchanged.
+    output dma_cmd_valid, input dma_cmd_ready,
+    output [31:0] dma_cmd_addr, output dma_cmd_read,
+    output [31:0] dma_cmd_wdata, output [3:0] dma_cmd_wmask,
+    input dma_rsp_valid, output dma_rsp_ready,
+    input dma_rsp_err, input [31:0] dma_rsp_rdata,
     // Same hfclk domain. Common asynchronous reset assertion; NICE release
     // uses the CPU's existing synchronized rst_aon. No CPU control changes.
     output                         xu_direct_capable,
@@ -795,6 +801,35 @@ module e203_subsys_perips(
   );
 
 
+`ifdef XU_MATRIX_DMA
+// Candidate build replaces the old compute instance: exactly one W/bias store.
+// Default builds below retain the complete historical accelerator and ABI.
+xu_matrix_dma u_xu_matrix_dma (
+    .clk(clk), .rst_n(bus_rst_n),
+    .cfg_cmd_valid(accel_cmd_valid), .cfg_cmd_ready(accel_cmd_ready),
+    .cfg_cmd_addr(accel_cmd_addr), .cfg_cmd_read(accel_cmd_read),
+    .cfg_cmd_wdata(accel_cmd_wdata), .cfg_cmd_wmask(accel_cmd_wmask),
+    .cfg_rsp_valid(accel_rsp_valid), .cfg_rsp_ready(accel_rsp_ready),
+    .cfg_rsp_err(accel_rsp_err), .cfg_rsp_rdata(accel_rsp_rdata),
+    .mem_cmd_valid(dma_cmd_valid), .mem_cmd_ready(dma_cmd_ready),
+    .mem_cmd_addr(dma_cmd_addr), .mem_cmd_read(dma_cmd_read),
+    .mem_cmd_wdata(dma_cmd_wdata), .mem_cmd_wmask(dma_cmd_wmask),
+    .mem_rsp_valid(dma_rsp_valid), .mem_rsp_ready(dma_rsp_ready),
+    .mem_rsp_err(dma_rsp_err), .mem_rsp_rdata(dma_rsp_rdata)
+);
+assign xu_direct_capable=1'b0;
+assign xu_direct_valid=1'b0;
+assign xu_direct_payload=256'b0;
+assign xu_direct_status=32'b0;
+assign xu_direct_commit_ready=1'b0;
+assign xu_direct_commit_err=1'b1;
+`else
+assign dma_cmd_valid=1'b0;
+assign dma_cmd_addr=32'b0;
+assign dma_cmd_read=1'b1;
+assign dma_cmd_wdata=32'b0;
+assign dma_cmd_wmask=4'b0;
+assign dma_rsp_ready=1'b1;
 accel_icb_slave #(.DIRECT_ENABLE(1)) u_accel_icb_slave (
     .xu_direct_capable(xu_direct_capable), .xu_direct_claim(xu_direct_claim),
     .xu_direct_valid(xu_direct_valid), .xu_direct_ready(xu_direct_ready),
@@ -816,6 +851,7 @@ accel_icb_slave #(.DIRECT_ENABLE(1)) u_accel_icb_slave (
     .rsp_err   (accel_rsp_err),
     .rsp_rdata (accel_rsp_rdata)
 );
+`endif
 
 
 
