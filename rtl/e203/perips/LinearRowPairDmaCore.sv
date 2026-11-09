@@ -556,7 +556,7 @@ module LinearRowPairDmaCore(
       `FIRRTL_AFTER_INITIAL
     `endif // FIRRTL_AFTER_INITIAL
   `endif // ENABLE_INITIAL_REG_
-  BiasSramPrefetch bias (
+  DmaBiasSramPrefetch bias (
     .clock            (clock),
     .reset            (reset | io_abort),
     .io_computeActive (active & ~io_abort),
