@@ -25,12 +25,25 @@ module e203_soc_top #(
   input ext_sysmem_cmd_ready,
   output [31:0] ext_sysmem_cmd_addr,
   output ext_sysmem_cmd_read,
+`ifdef XU_MATRIX_DMA64
+  output [63:0] ext_sysmem_cmd_wdata,
+  output ext_sysmem_cmd_is32,
+`else
   output [31:0] ext_sysmem_cmd_wdata,
+`endif
+`ifdef XU_MATRIX_DMA64
+  output [7:0] ext_sysmem_cmd_wmask,
+`else
   output [3:0] ext_sysmem_cmd_wmask,
+`endif
   input ext_sysmem_rsp_valid,
   output ext_sysmem_rsp_ready,
   input ext_sysmem_rsp_err,
+`ifdef XU_MATRIX_DMA64
+  input [63:0] ext_sysmem_rsp_rdata,
+`else
   input [31:0] ext_sysmem_rsp_rdata,
+`endif
 
   output shared_mem_clk,
   output shared_mem_rst_n,
@@ -182,6 +195,9 @@ module e203_soc_top #(
   .sysmem_icb_cmd_valid(sysmem_icb_cmd_valid),
   .sysmem_icb_cmd_ready(sysmem_icb_cmd_ready),
   .sysmem_icb_cmd_read (ext_sysmem_cmd_read),
+`ifdef XU_MATRIX_DMA64
+  .sysmem_icb_cmd_is32 (ext_sysmem_cmd_is32),
+`endif
   .sysmem_icb_cmd_addr (ext_sysmem_cmd_addr),
   .sysmem_icb_cmd_wdata(ext_sysmem_cmd_wdata),
   .sysmem_icb_cmd_wmask(ext_sysmem_cmd_wmask),
@@ -189,7 +205,11 @@ module e203_soc_top #(
   .sysmem_icb_rsp_valid(EXTERNAL_SYSMEM ? ext_sysmem_rsp_valid : sysmem_icb_cmd_valid),
   .sysmem_icb_rsp_ready(sysmem_icb_rsp_ready),
   .sysmem_icb_rsp_err  (EXTERNAL_SYSMEM ? ext_sysmem_rsp_err : 1'b0),
+`ifdef XU_MATRIX_DMA64
+  .sysmem_icb_rsp_rdata(EXTERNAL_SYSMEM ? ext_sysmem_rsp_rdata : 64'b0),
+`else
   .sysmem_icb_rsp_rdata(EXTERNAL_SYSMEM ? ext_sysmem_rsp_rdata : 32'b0),
+`endif
 
   .io_pads_jtag_TCK_i_ival    (io_pads_jtag_TCK_i_ival    ),
   .io_pads_jtag_TCK_o_oval    (),

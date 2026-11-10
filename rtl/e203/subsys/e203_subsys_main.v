@@ -222,14 +222,27 @@ module e203_subsys_main(
   input                          sysmem_icb_cmd_ready,
   output [`E203_ADDR_SIZE-1:0]   sysmem_icb_cmd_addr, 
   output                         sysmem_icb_cmd_read, 
+`ifdef XU_MATRIX_DMA64
+  output [63:0]                 sysmem_icb_cmd_wdata,
+  output                        sysmem_icb_cmd_is32,
+`else
   output [`E203_XLEN-1:0]        sysmem_icb_cmd_wdata,
+`endif
+`ifdef XU_MATRIX_DMA64
+  output [7:0]                  sysmem_icb_cmd_wmask,
+`else
   output [`E203_XLEN/8-1:0]      sysmem_icb_cmd_wmask,
+`endif
   //
   //    * Bus RSP channel
   input                          sysmem_icb_rsp_valid,
   output                         sysmem_icb_rsp_ready,
   input                          sysmem_icb_rsp_err  ,
+`ifdef XU_MATRIX_DMA64
+  input [63:0]                  sysmem_icb_rsp_rdata,
+`else
   input  [`E203_XLEN-1:0]        sysmem_icb_rsp_rdata,
+`endif
   `endif//}
 
   input  test_mode,
@@ -869,13 +882,31 @@ e203_subsys_clint u_e203_subsys_clint(
   wire cpu_sysmem_icb_rsp_valid, cpu_sysmem_icb_rsp_ready, cpu_sysmem_icb_rsp_err;
   wire [31:0] cpu_sysmem_icb_rsp_rdata;
   wire dma_cmd_valid, dma_cmd_ready, dma_cmd_read;
-  wire [31:0] dma_cmd_addr, dma_cmd_wdata;
+  wire [31:0] dma_cmd_addr;
+`ifdef XU_MATRIX_DMA64
+  wire [63:0] dma_cmd_wdata;
+`else
+  wire [31:0] dma_cmd_wdata;
+`endif
+`ifdef XU_MATRIX_DMA64
+  wire [7:0] dma_cmd_wmask;
+`else
   wire [3:0] dma_cmd_wmask;
+`endif
   wire dma_rsp_valid, dma_rsp_ready, dma_rsp_err;
+`ifdef XU_MATRIX_DMA64
+  wire [63:0] dma_rsp_rdata;
+`else
   wire [31:0] dma_rsp_rdata;
+`endif
 
 `ifdef XU_MATRIX_DMA
+`ifdef XU_MATRIX_DMA64
+  xu_dma64_shared_arb u_xu_dma_shared_arb (
+    .dma_cmd_is32(1'b0),.mem_cmd_is32(sysmem_icb_cmd_is32),
+`else
   xu_dma_shared_arb u_xu_dma_shared_arb (
+`endif
     .clk(hfclk), .rst_n(bus_rst_n),
     .cpu_cmd_valid(cpu_sysmem_icb_cmd_valid), .cpu_cmd_ready(cpu_sysmem_icb_cmd_ready),
     .cpu_cmd_addr(cpu_sysmem_icb_cmd_addr), .cpu_cmd_read(cpu_sysmem_icb_cmd_read),

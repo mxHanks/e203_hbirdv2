@@ -32,9 +32,18 @@ module e203_subsys_perips(
     // Independent peripheral master; original CPU interfaces are unchanged.
     output dma_cmd_valid, input dma_cmd_ready,
     output [31:0] dma_cmd_addr, output dma_cmd_read,
+`ifdef XU_MATRIX_DMA64
+    output [63:0] dma_cmd_wdata, output [7:0] dma_cmd_wmask,
+`else
     output [31:0] dma_cmd_wdata, output [3:0] dma_cmd_wmask,
+`endif
     input dma_rsp_valid, output dma_rsp_ready,
-    input dma_rsp_err, input [31:0] dma_rsp_rdata,
+    input dma_rsp_err,
+`ifdef XU_MATRIX_DMA64
+    input [63:0] dma_rsp_rdata,
+`else
+    input [31:0] dma_rsp_rdata,
+`endif
     // Same hfclk domain. Common asynchronous reset assertion; NICE release
     // uses the CPU's existing synchronized rst_aon. No CPU control changes.
     output                         xu_direct_capable,
@@ -804,7 +813,11 @@ module e203_subsys_perips(
 `ifdef XU_MATRIX_DMA
 // Candidate build replaces the old compute instance: exactly one W/bias store.
 // Default builds below retain the complete historical accelerator and ABI.
+`ifdef XU_MATRIX_DMA64
+xu_matrix_dma64 u_xu_matrix_dma (
+`else
 xu_matrix_dma u_xu_matrix_dma (
+`endif
     .clk(clk), .rst_n(bus_rst_n),
     .cfg_cmd_valid(accel_cmd_valid), .cfg_cmd_ready(accel_cmd_ready),
     .cfg_cmd_addr(accel_cmd_addr), .cfg_cmd_read(accel_cmd_read),

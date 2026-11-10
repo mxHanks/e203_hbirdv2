@@ -169,14 +169,27 @@ module e203_subsys_top(
   input                          sysmem_icb_cmd_ready,
   output [`E203_ADDR_SIZE-1:0]   sysmem_icb_cmd_addr, 
   output                         sysmem_icb_cmd_read, 
+`ifdef XU_MATRIX_DMA64
+  output [63:0]                 sysmem_icb_cmd_wdata,
+  output                        sysmem_icb_cmd_is32,
+`else
   output [`E203_XLEN-1:0]        sysmem_icb_cmd_wdata,
+`endif
+`ifdef XU_MATRIX_DMA64
+  output [7:0]                  sysmem_icb_cmd_wmask,
+`else
   output [`E203_XLEN/8-1:0]      sysmem_icb_cmd_wmask,
+`endif
   //
   //    * Bus RSP channel
   input                          sysmem_icb_rsp_valid,
   output                         sysmem_icb_rsp_ready,
   input                          sysmem_icb_rsp_err  ,
+`ifdef XU_MATRIX_DMA64
+  input [63:0]                  sysmem_icb_rsp_rdata,
+`else
   input  [`E203_XLEN-1:0]        sysmem_icb_rsp_rdata,
+`endif
   `endif//}
 
   input  [32-1:0] io_pads_gpioA_i_ival,
@@ -470,6 +483,9 @@ module e203_subsys_top(
     .sysmem_icb_cmd_ready  (sysmem_icb_cmd_ready),
     .sysmem_icb_cmd_addr   (sysmem_icb_cmd_addr ),
     .sysmem_icb_cmd_read   (sysmem_icb_cmd_read ),
+`ifdef XU_MATRIX_DMA64
+    .sysmem_icb_cmd_is32   (sysmem_icb_cmd_is32),
+`endif
     .sysmem_icb_cmd_wdata  (sysmem_icb_cmd_wdata),
     .sysmem_icb_cmd_wmask  (sysmem_icb_cmd_wmask),
     
