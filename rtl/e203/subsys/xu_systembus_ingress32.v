@@ -1,6 +1,9 @@
 // CPU and DMA are sources of the original 32-bit SystemBus, before mem_fab.
-// The platform ICB arbiter retains one response-owner entry. No SRAM side port,
-// width adapter, added data queue, or CPU/LSU/BIU control is introduced here.
+// The platform ICB arbiter retains four ordered response-owner entries. These
+// are source IDs only: command/data storage remains in the original mem_fab
+// CMD_DP=2 / RSP_DP=2 buffers and its one-outstanding splitter. Backpressure
+// from that unchanged fabric limits acceptance; no SRAM side port, width
+// adapter, added data queue, or CPU/LSU/BIU control is introduced here.
 // Optional simulation loader is another source of this SAME SystemBus only.
 module xu_systembus_ingress32 #(parameter TEST_LOADER = 0)(
   input clk, input rst_n,
@@ -86,7 +89,7 @@ module xu_systembus_ingress32 #(parameter TEST_LOADER = 0)(
   end endgenerate
   sirv_gnrl_icb_arbt #(
     .AW(32),.DW(32),.USR_W(1),.ARBT_SCHEME(0),
-    .FIFO_OUTS_NUM(1),.FIFO_CUT_READY(1),.ALLOW_0CYCL_RSP(0),
+    .FIFO_OUTS_NUM(4),.FIFO_CUT_READY(1),.ALLOW_0CYCL_RSP(0),
     .ARBT_NUM(N),.ARBT_PTR_W(PW)
   ) u_platform_icb_arb (
     .o_icb_cmd_valid(bus_cmd_valid),.o_icb_cmd_ready(bus_cmd_ready),

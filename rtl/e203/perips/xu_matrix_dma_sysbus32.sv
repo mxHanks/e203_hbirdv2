@@ -1,4 +1,4 @@
-// Compliant32 System Bus peripheral DMA: one ordered outstanding request.
+// Compliant32 System Bus DMA: four ordered requests within the original fabric buffers.
 // The unchanged64PE core receives paired32-bit W responses through internal staging.
 // CPU/LSU/BIU controls are unchanged. Bias physical commit overlaps W fetch.
 module xu_matrix_dma_sysbus32 (
@@ -35,9 +35,20 @@ module xu_matrix_dma_sysbus32 (
   reg [255:0] y_payload;
   reg [31:0] y_address;
   reg [3:0] y_issue;
-  reg pending,locked;
-  reg [2:0] pending_kind,lock_kind,want_kind;
-  reg [13:0] pending_index,lock_index,want_index;
+  // Only request metadata is buffered here; all data still traverses the
+  // original 32-bit mem_fab. Its command/response queues and single target
+  // outstanding configuration are unchanged. Responses retire in issue order.
+  localparam REQUEST_DEPTH=4;
+  reg [2:0] pending_count;
+  reg [1:0] pending_read_ptr,pending_write_ptr;
+  reg [2:0] request_kind [0:REQUEST_DEPTH-1];
+  reg [13:0] request_index [0:REQUEST_DEPTH-1];
+  wire pending=pending_count!=0;
+  wire [2:0] pending_kind=pending?request_kind[pending_read_ptr]:3'b0;
+  wire [13:0] pending_index=pending?request_index[pending_read_ptr]:14'b0;
+  reg locked;
+  reg [2:0] lock_kind,want_kind;
+  reg [13:0] lock_index,want_index;
   reg [31:0] lock_addr,want_addr;
   reg [31:0] lock_data,want_data;
   reg lock_read,want_read,want;
@@ -54,7 +65,7 @@ module xu_matrix_dma_sysbus32 (
   wire fault=!aborting&&((rsp_fire&&mem_rsp_err)||(bias_wait&&core_bias_rsp&&core_bias_error));
   wire [2:0] offer_kind=locked?lock_kind:want_kind;
   wire [13:0] offer_index=locked?lock_index:want_index;
-  assign mem_cmd_valid=rst_n&&(locked||(!aborting&&!fault&&want&&(!pending||rsp_fire)));
+  assign mem_cmd_valid=rst_n&&(locked||(!aborting&&!fault&&want&&(pending_count<REQUEST_DEPTH||rsp_fire)));
   assign mem_cmd_addr=locked?lock_addr:want_addr;
   assign mem_cmd_read=locked?lock_read:want_read;
   assign mem_cmd_wdata=locked?lock_data:want_data;
@@ -135,7 +146,7 @@ module xu_matrix_dma_sysbus32 (
     .io_macStep(core_mac_step),.io_fifoFullWait(core_fifo_wait),
     .io_clearWeightWrite(core_clear_w),.io_clearXWrite(core_clear_x)
   );
-  integer lane;
+  integer lane,queue_slot;
   always @(posedge clk or negedge rst_n)begin
     if(!rst_n)begin
       state<=IDLE;busy<=0;done<=0;error<=0;clear_done<=0;wide_rows<=0;aborting<=0;error_code<=0;
@@ -148,7 +159,10 @@ module xu_matrix_dma_sysbus32 (
       x_filling<=0;x_ready<=0;x_set<=0;run_set<=0;tile_running<=0;
       x_row<=0;run_row<=0;issued_rows<=0;x_issue<=0;x_limit<=0;
       y_active<=0;y_payload<=0;y_address<=0;y_issue<=0;
-      pending<=0;pending_kind<=0;pending_index<=0;
+      pending_count<=0;pending_read_ptr<=0;pending_write_ptr<=0;
+      for(queue_slot=0;queue_slot<REQUEST_DEPTH;queue_slot=queue_slot+1)begin
+        request_kind[queue_slot]<=0;request_index[queue_slot]<=0;
+      end
       locked<=0;lock_kind<=0;lock_index<=0;lock_addr<=0;lock_data<=0;lock_read<=0;
       cfg_rsp_valid<=0;cfg_rsp_err<=0;cfg_rsp_rdata<=0;
     end else begin
@@ -165,9 +179,19 @@ module xu_matrix_dma_sysbus32 (
         locked<=1;lock_kind<=want_kind;lock_index<=want_index;
         lock_addr<=want_addr;lock_data<=want_data;lock_read<=want_read;
       end
-      if(rsp_fire)pending<=0;
+      case({cmd_fire,rsp_fire})
+        2'b10:pending_count<=pending_count+1'b1;
+        2'b01:pending_count<=pending_count-1'b1;
+        default:begin end
+      endcase
+      if(rsp_fire)begin
+        request_kind[pending_read_ptr]<=0;request_index[pending_read_ptr]<=0;
+        pending_read_ptr<=pending_read_ptr+1'b1;
+      end
       if(cmd_fire)begin
-        locked<=0;pending<=1;pending_kind<=offer_kind;pending_index<=offer_index;
+        locked<=0;
+        request_kind[pending_write_ptr]<=offer_kind;request_index[pending_write_ptr]<=offer_index;
+        pending_write_ptr<=pending_write_ptr+1'b1;
         if(mem_cmd_read)read_count<=read_count+1;else write_count<=write_count+1;
         if(!aborting&&!fault)case(offer_kind)
           KW:w_issue<=w_issue+1;
@@ -242,7 +266,11 @@ module xu_matrix_dma_sysbus32 (
               clear_cycles<=0;clear_write_count<=0;x_filling<=0;x_ready<=0;tile_running<=0;
               y_active<=0;y_payload<=0;bias_data<=0;bias_addr<=0;bias_busy<=0;bias_valid<=0;bias_wait<=0;
               lock_addr<=0;lock_data<=0;lock_kind<=0;lock_index<=0;lock_read<=0;
-              pending_kind<=0;pending_index<=0;y_address<=0;y_issue<=0;
+              pending_count<=0;pending_read_ptr<=0;pending_write_ptr<=0;
+              for(queue_slot=0;queue_slot<REQUEST_DEPTH;queue_slot=queue_slot+1)begin
+                request_kind[queue_slot]<=0;request_index[queue_slot]<=0;
+              end
+              y_address<=0;y_issue<=0;
               run_x<=0;run_w<=0;run_b<=0;run_y<=0;run_row<=0;run_set<=0;
               x_row<=0;x_set<=0;x_issue<=0;x_limit<=0;issued_rows<=0;
               w_issue<=0;w_complete<=0;b_issue<=0;b_complete<=0;w_low<=0;bias_low<=0;
