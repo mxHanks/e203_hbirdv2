@@ -559,6 +559,2481 @@ endmodule
     `define INIT_RANDOM_PROLOG_
   `endif // RANDOMIZE
 `endif // not def INIT_RANDOM_PROLOG_
+
+`ifdef XU_MATRIX_DMA_SYSBUS32
+`ifdef XU_MATRIX_X_SRAM
+`define C32_X_SRAM_SELECTED
+`endif
+`endif
+`ifdef C32_X_SRAM_SELECTED
+module LinearTileDmaCore(
+  input         clock,
+                reset,
+                io_start,
+  input  [3:0]  io_validRows,
+  input         io_abort,
+  output        io_active,
+                io_done,
+  input         io_xLoadWen,
+  input  [2:0]  io_xLoadRow,
+  input         io_xLoadSet,
+                io_xRunSet,
+  input  [5:0]  io_xLoadAddr,
+  input  [15:0] io_xLoadData,
+  input         io_xLoadPacked,
+  input  [15:0] io_xLoadDataHi,
+  input         io_wLoadWen,
+  input  [2:0]  io_wLoadBank,
+  input  [10:0] io_wLoadAddr,
+  input  [15:0] io_wLoadData_0,
+                io_wLoadData_1,
+                io_wLoadData_2,
+                io_wLoadData_3,
+  input         io_biasHostValid,
+  output        io_biasHostReady,
+  input  [7:0]  io_biasHostAddr,
+  input  [39:0] io_biasHostData,
+  output        io_biasRspValid,
+                io_biasRspError,
+  input         io_clearValid,
+  output        io_clearReady,
+                io_clearDone,
+                io_clearing,
+                io_outValid,
+  input         io_outPop,
+  output [4:0]  io_outGroup,
+  output [2:0]  io_outRow,
+  output [47:0] io_outResult_0,
+                io_outResult_1,
+                io_outResult_2,
+                io_outResult_3,
+                io_outResult_4,
+                io_outResult_5,
+                io_outResult_6,
+                io_outResult_7,
+  output        io_computeStart,
+                io_weightRead,
+                io_macStep,
+                io_fifoFullWait,
+                io_clearWeightWrite,
+                io_clearXWrite
+);
+
+  wire        io_outValid_0;
+  wire [15:0] _weights_io_rdata_0;
+  wire [15:0] _weights_io_rdata_1;
+  wire [15:0] _weights_io_rdata_2;
+  wire [15:0] _weights_io_rdata_3;
+  wire [15:0] _weights_io_rdata_4;
+  wire [15:0] _weights_io_rdata_5;
+  wire [15:0] _weights_io_rdata_6;
+  wire [15:0] _weights_io_rdata_7;
+  wire [15:0] _xs_1_7_io_rdata;
+  wire [15:0] _xs_1_6_io_rdata;
+  wire [15:0] _xs_1_5_io_rdata;
+  wire [15:0] _xs_1_4_io_rdata;
+  wire [15:0] _xs_1_3_io_rdata;
+  wire [15:0] _xs_1_2_io_rdata;
+  wire [15:0] _xs_1_1_io_rdata;
+  wire [15:0] _xs_1_0_io_rdata;
+  wire [15:0] _xs_0_7_io_rdata;
+  wire [15:0] _xs_0_6_io_rdata;
+  wire [15:0] _xs_0_5_io_rdata;
+  wire [15:0] _xs_0_4_io_rdata;
+  wire [15:0] _xs_0_3_io_rdata;
+  wire [15:0] _xs_0_2_io_rdata;
+  wire [15:0] _xs_0_1_io_rdata;
+  wire [15:0] _xs_0_0_io_rdata;
+  wire        _engines_7_io_weightRen;
+  wire [5:0]  _engines_7_io_weightReadK;
+  wire [5:0]  _engines_7_io_k;
+  wire        _engines_7_io_done;
+  wire [47:0] _engines_7_io_result_0;
+  wire [47:0] _engines_7_io_result_1;
+  wire [47:0] _engines_7_io_result_2;
+  wire [47:0] _engines_7_io_result_3;
+  wire [47:0] _engines_7_io_result_4;
+  wire [47:0] _engines_7_io_result_5;
+  wire [47:0] _engines_7_io_result_6;
+  wire [47:0] _engines_7_io_result_7;
+  wire        _engines_6_io_weightRen;
+  wire [5:0]  _engines_6_io_weightReadK;
+  wire [5:0]  _engines_6_io_k;
+  wire        _engines_6_io_done;
+  wire [47:0] _engines_6_io_result_0;
+  wire [47:0] _engines_6_io_result_1;
+  wire [47:0] _engines_6_io_result_2;
+  wire [47:0] _engines_6_io_result_3;
+  wire [47:0] _engines_6_io_result_4;
+  wire [47:0] _engines_6_io_result_5;
+  wire [47:0] _engines_6_io_result_6;
+  wire [47:0] _engines_6_io_result_7;
+  wire        _engines_5_io_weightRen;
+  wire [5:0]  _engines_5_io_weightReadK;
+  wire [5:0]  _engines_5_io_k;
+  wire        _engines_5_io_done;
+  wire [47:0] _engines_5_io_result_0;
+  wire [47:0] _engines_5_io_result_1;
+  wire [47:0] _engines_5_io_result_2;
+  wire [47:0] _engines_5_io_result_3;
+  wire [47:0] _engines_5_io_result_4;
+  wire [47:0] _engines_5_io_result_5;
+  wire [47:0] _engines_5_io_result_6;
+  wire [47:0] _engines_5_io_result_7;
+  wire        _engines_4_io_weightRen;
+  wire [5:0]  _engines_4_io_weightReadK;
+  wire [5:0]  _engines_4_io_k;
+  wire        _engines_4_io_done;
+  wire [47:0] _engines_4_io_result_0;
+  wire [47:0] _engines_4_io_result_1;
+  wire [47:0] _engines_4_io_result_2;
+  wire [47:0] _engines_4_io_result_3;
+  wire [47:0] _engines_4_io_result_4;
+  wire [47:0] _engines_4_io_result_5;
+  wire [47:0] _engines_4_io_result_6;
+  wire [47:0] _engines_4_io_result_7;
+  wire        _engines_3_io_weightRen;
+  wire [5:0]  _engines_3_io_weightReadK;
+  wire [5:0]  _engines_3_io_k;
+  wire        _engines_3_io_done;
+  wire [47:0] _engines_3_io_result_0;
+  wire [47:0] _engines_3_io_result_1;
+  wire [47:0] _engines_3_io_result_2;
+  wire [47:0] _engines_3_io_result_3;
+  wire [47:0] _engines_3_io_result_4;
+  wire [47:0] _engines_3_io_result_5;
+  wire [47:0] _engines_3_io_result_6;
+  wire [47:0] _engines_3_io_result_7;
+  wire        _engines_2_io_weightRen;
+  wire [5:0]  _engines_2_io_weightReadK;
+  wire [5:0]  _engines_2_io_k;
+  wire        _engines_2_io_done;
+  wire [47:0] _engines_2_io_result_0;
+  wire [47:0] _engines_2_io_result_1;
+  wire [47:0] _engines_2_io_result_2;
+  wire [47:0] _engines_2_io_result_3;
+  wire [47:0] _engines_2_io_result_4;
+  wire [47:0] _engines_2_io_result_5;
+  wire [47:0] _engines_2_io_result_6;
+  wire [47:0] _engines_2_io_result_7;
+  wire        _engines_1_io_weightRen;
+  wire [5:0]  _engines_1_io_weightReadK;
+  wire [5:0]  _engines_1_io_k;
+  wire        _engines_1_io_done;
+  wire [47:0] _engines_1_io_result_0;
+  wire [47:0] _engines_1_io_result_1;
+  wire [47:0] _engines_1_io_result_2;
+  wire [47:0] _engines_1_io_result_3;
+  wire [47:0] _engines_1_io_result_4;
+  wire [47:0] _engines_1_io_result_5;
+  wire [47:0] _engines_1_io_result_6;
+  wire [47:0] _engines_1_io_result_7;
+  wire        _engines_0_io_weightRen;
+  wire [5:0]  _engines_0_io_weightReadK;
+  wire [5:0]  _engines_0_io_k;
+  wire        _engines_0_io_done;
+  wire [47:0] _engines_0_io_result_0;
+  wire [47:0] _engines_0_io_result_1;
+  wire [47:0] _engines_0_io_result_2;
+  wire [47:0] _engines_0_io_result_3;
+  wire [47:0] _engines_0_io_result_4;
+  wire [47:0] _engines_0_io_result_5;
+  wire [47:0] _engines_0_io_result_6;
+  wire [47:0] _engines_0_io_result_7;
+  wire        _bias_io_clearReady;
+  wire        _bias_io_clearDone;
+  wire        _bias_io_hostReady;
+  wire        _bias_io_rspValid;
+  wire        _bias_io_hostIdle;
+  wire        _bias_io_groupValid;
+  wire [4:0]  _bias_io_groupTag;
+  wire [39:0] _bias_io_groupBias_0;
+  wire [39:0] _bias_io_groupBias_1;
+  wire [39:0] _bias_io_groupBias_2;
+  wire [39:0] _bias_io_groupBias_3;
+  wire [39:0] _bias_io_groupBias_4;
+  wire [39:0] _bias_io_groupBias_5;
+  wire [39:0] _bias_io_groupBias_6;
+  wire [39:0] _bias_io_groupBias_7;
+  reg         active;
+  reg         running;
+  reg  [3:0]  validRows;
+  reg         runSet;
+  reg  [5:0]  produced;
+  reg  [5:0]  retired;
+  reg  [1:0]  count;
+  reg         head;
+  reg         tail;
+  reg  [2:0]  outputRow;
+  reg  [40:0] results_0_0_0;
+  reg  [40:0] results_0_0_1;
+  reg  [40:0] results_0_0_2;
+  reg  [40:0] results_0_0_3;
+  reg  [40:0] results_0_0_4;
+  reg  [40:0] results_0_0_5;
+  reg  [40:0] results_0_0_6;
+  reg  [40:0] results_0_0_7;
+  reg  [40:0] results_0_1_0;
+  reg  [40:0] results_0_1_1;
+  reg  [40:0] results_0_1_2;
+  reg  [40:0] results_0_1_3;
+  reg  [40:0] results_0_1_4;
+  reg  [40:0] results_0_1_5;
+  reg  [40:0] results_0_1_6;
+  reg  [40:0] results_0_1_7;
+  reg  [40:0] results_0_2_0;
+  reg  [40:0] results_0_2_1;
+  reg  [40:0] results_0_2_2;
+  reg  [40:0] results_0_2_3;
+  reg  [40:0] results_0_2_4;
+  reg  [40:0] results_0_2_5;
+  reg  [40:0] results_0_2_6;
+  reg  [40:0] results_0_2_7;
+  reg  [40:0] results_0_3_0;
+  reg  [40:0] results_0_3_1;
+  reg  [40:0] results_0_3_2;
+  reg  [40:0] results_0_3_3;
+  reg  [40:0] results_0_3_4;
+  reg  [40:0] results_0_3_5;
+  reg  [40:0] results_0_3_6;
+  reg  [40:0] results_0_3_7;
+  reg  [40:0] results_0_4_0;
+  reg  [40:0] results_0_4_1;
+  reg  [40:0] results_0_4_2;
+  reg  [40:0] results_0_4_3;
+  reg  [40:0] results_0_4_4;
+  reg  [40:0] results_0_4_5;
+  reg  [40:0] results_0_4_6;
+  reg  [40:0] results_0_4_7;
+  reg  [40:0] results_0_5_0;
+  reg  [40:0] results_0_5_1;
+  reg  [40:0] results_0_5_2;
+  reg  [40:0] results_0_5_3;
+  reg  [40:0] results_0_5_4;
+  reg  [40:0] results_0_5_5;
+  reg  [40:0] results_0_5_6;
+  reg  [40:0] results_0_5_7;
+  reg  [40:0] results_0_6_0;
+  reg  [40:0] results_0_6_1;
+  reg  [40:0] results_0_6_2;
+  reg  [40:0] results_0_6_3;
+  reg  [40:0] results_0_6_4;
+  reg  [40:0] results_0_6_5;
+  reg  [40:0] results_0_6_6;
+  reg  [40:0] results_0_6_7;
+  reg  [40:0] results_0_7_0;
+  reg  [40:0] results_0_7_1;
+  reg  [40:0] results_0_7_2;
+  reg  [40:0] results_0_7_3;
+  reg  [40:0] results_0_7_4;
+  reg  [40:0] results_0_7_5;
+  reg  [40:0] results_0_7_6;
+  reg  [40:0] results_0_7_7;
+  reg  [40:0] results_1_0_0;
+  reg  [40:0] results_1_0_1;
+  reg  [40:0] results_1_0_2;
+  reg  [40:0] results_1_0_3;
+  reg  [40:0] results_1_0_4;
+  reg  [40:0] results_1_0_5;
+  reg  [40:0] results_1_0_6;
+  reg  [40:0] results_1_0_7;
+  reg  [40:0] results_1_1_0;
+  reg  [40:0] results_1_1_1;
+  reg  [40:0] results_1_1_2;
+  reg  [40:0] results_1_1_3;
+  reg  [40:0] results_1_1_4;
+  reg  [40:0] results_1_1_5;
+  reg  [40:0] results_1_1_6;
+  reg  [40:0] results_1_1_7;
+  reg  [40:0] results_1_2_0;
+  reg  [40:0] results_1_2_1;
+  reg  [40:0] results_1_2_2;
+  reg  [40:0] results_1_2_3;
+  reg  [40:0] results_1_2_4;
+  reg  [40:0] results_1_2_5;
+  reg  [40:0] results_1_2_6;
+  reg  [40:0] results_1_2_7;
+  reg  [40:0] results_1_3_0;
+  reg  [40:0] results_1_3_1;
+  reg  [40:0] results_1_3_2;
+  reg  [40:0] results_1_3_3;
+  reg  [40:0] results_1_3_4;
+  reg  [40:0] results_1_3_5;
+  reg  [40:0] results_1_3_6;
+  reg  [40:0] results_1_3_7;
+  reg  [40:0] results_1_4_0;
+  reg  [40:0] results_1_4_1;
+  reg  [40:0] results_1_4_2;
+  reg  [40:0] results_1_4_3;
+  reg  [40:0] results_1_4_4;
+  reg  [40:0] results_1_4_5;
+  reg  [40:0] results_1_4_6;
+  reg  [40:0] results_1_4_7;
+  reg  [40:0] results_1_5_0;
+  reg  [40:0] results_1_5_1;
+  reg  [40:0] results_1_5_2;
+  reg  [40:0] results_1_5_3;
+  reg  [40:0] results_1_5_4;
+  reg  [40:0] results_1_5_5;
+  reg  [40:0] results_1_5_6;
+  reg  [40:0] results_1_5_7;
+  reg  [40:0] results_1_6_0;
+  reg  [40:0] results_1_6_1;
+  reg  [40:0] results_1_6_2;
+  reg  [40:0] results_1_6_3;
+  reg  [40:0] results_1_6_4;
+  reg  [40:0] results_1_6_5;
+  reg  [40:0] results_1_6_6;
+  reg  [40:0] results_1_6_7;
+  reg  [40:0] results_1_7_0;
+  reg  [40:0] results_1_7_1;
+  reg  [40:0] results_1_7_2;
+  reg  [40:0] results_1_7_3;
+  reg  [40:0] results_1_7_4;
+  reg  [40:0] results_1_7_5;
+  reg  [40:0] results_1_7_6;
+  reg  [40:0] results_1_7_7;
+  reg  [4:0]  tags_0;
+  reg  [4:0]  tags_1;
+  reg         clearing;
+  reg  [10:0] clearIndex;
+  reg         biasCleared;
+  reg         clearDone;
+  wire        _io_clearReady_T_3 = count == 2'h0;
+  wire        io_clearReady_0 =
+    ~active & ~running & _io_clearReady_T_3 & ~clearing & _bias_io_clearReady & ~io_abort;
+  wire        clearFire = io_clearValid & io_clearReady_0;
+  wire        _GEN = reset | clearFire | io_abort;
+  wire        biasReady = _bias_io_groupValid & _bias_io_groupTag == produced[4:0];
+  wire        launch =
+    active & ~running & ~(produced[5]) & ~(count[1]) & biasReady & ~io_abort;
+  wire        _nextBiasDemand_T = active & running;
+  wire        enqueue = _nextBiasDemand_T & _engines_0_io_done & ~io_abort;
+  wire        pop = io_outPop & io_outValid_0;
+  wire [3:0]  _GEN_0 = {1'h0, outputRow};
+  wire [3:0]  _outputRow_T = _GEN_0 + 4'h1;
+  wire        retireTile = pop & _outputRow_T == validRows;
+  reg         takeBias;
+  wire        nextBiasDemand = _nextBiasDemand_T & ~takeBias & produced < 6'h1F;
+  wire [5:0]  _produced_T = produced + 6'h1;
+  wire        _xs_1_0_io_wen_T_3 = io_xLoadRow == 3'h0;
+  wire        _xs_1_7_io_wen_T_8 = io_xLoadSet != runSet;
+  wire        _io_clearXWrite_T = clearIndex < 11'h400;
+  wire [15:0] xs_1_7_io_wdata = clearing ? 16'h0 : io_xLoadData;
+  wire [15:0] xs_1_7_io_wdataHi = clearing ? 16'h0 : io_xLoadDataHi;
+  wire        _engines_1_io_start_T = |(validRows[3:1]);
+  wire        _xs_1_1_io_wen_T_3 = io_xLoadRow == 3'h1;
+  wire        _engines_2_io_start_T = validRows > 4'h2;
+  wire        _xs_1_2_io_wen_T_3 = io_xLoadRow == 3'h2;
+  wire        _engines_3_io_start_T = |(validRows[3:2]);
+  wire        _xs_1_3_io_wen_T_3 = io_xLoadRow == 3'h3;
+  wire        _engines_4_io_start_T = validRows > 4'h4;
+  wire        _xs_1_4_io_wen_T_3 = io_xLoadRow == 3'h4;
+  wire        _engines_5_io_start_T = validRows > 4'h5;
+  wire        _xs_1_5_io_wen_T_3 = io_xLoadRow == 3'h5;
+  wire        _engines_6_io_start_T = validRows > 4'h6;
+  wire        _xs_1_6_io_wen_T_3 = io_xLoadRow == 3'h6;
+  wire        _xs_1_7_io_wen_T_3 = &io_xLoadRow;
+  wire        weights_io_clearWen = clearing & ~(clearIndex[10]) & ~io_abort;
+  wire        weights_io_ren = _engines_0_io_weightRen & ~clearing & ~io_abort;
+  wire        _GEN_1 = io_abort | io_start;
+  wire        _GEN_2 = retireTile & retired == 6'h1F;
+  `ifndef SYNTHESIS
+    wire _GEN_3 = running & _engines_1_io_start_T & ~io_abort & ~reset;
+    wire _GEN_4 = running & _engines_2_io_start_T & ~io_abort & ~reset;
+    wire _GEN_5 = running & _engines_3_io_start_T & ~io_abort & ~reset;
+    wire _GEN_6 = running & _engines_4_io_start_T & ~io_abort & ~reset;
+    wire _GEN_7 = running & _engines_5_io_start_T & ~io_abort & ~reset;
+    wire _GEN_8 = running & _engines_6_io_start_T & ~io_abort & ~reset;
+    wire _GEN_9 = running & validRows[3] & ~io_abort & ~reset;
+    wire _GEN_10 = ~io_abort & io_start & ~reset;
+    wire _GEN_11 = ~io_abort & ~io_start & enqueue & ~reset;
+    wire _GEN_12 = active & ~io_abort;
+    wire _GEN_13 = _GEN_12 & ~reset;
+    always @(posedge clock) begin
+      if (takeBias & ~io_abort & ~reset & ~biasReady) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: Tile INIT must consume its own bias group\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_3 & _engines_0_io_k != _engines_1_io_k) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed at LinearTileDmaCore.scala:146\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_3 & _engines_0_io_weightRen != _engines_1_io_weightRen) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed at LinearTileDmaCore.scala:147\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_3 & _engines_0_io_weightReadK != _engines_1_io_weightReadK) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed at LinearTileDmaCore.scala:148\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_3 & _engines_0_io_done != _engines_1_io_done) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed at LinearTileDmaCore.scala:149\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_4 & _engines_0_io_k != _engines_2_io_k) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed at LinearTileDmaCore.scala:146\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_4 & _engines_0_io_weightRen != _engines_2_io_weightRen) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed at LinearTileDmaCore.scala:147\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_4 & _engines_0_io_weightReadK != _engines_2_io_weightReadK) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed at LinearTileDmaCore.scala:148\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_4 & _engines_0_io_done != _engines_2_io_done) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed at LinearTileDmaCore.scala:149\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_5 & _engines_0_io_k != _engines_3_io_k) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed at LinearTileDmaCore.scala:146\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_5 & _engines_0_io_weightRen != _engines_3_io_weightRen) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed at LinearTileDmaCore.scala:147\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_5 & _engines_0_io_weightReadK != _engines_3_io_weightReadK) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed at LinearTileDmaCore.scala:148\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_5 & _engines_0_io_done != _engines_3_io_done) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed at LinearTileDmaCore.scala:149\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_6 & _engines_0_io_k != _engines_4_io_k) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed at LinearTileDmaCore.scala:146\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_6 & _engines_0_io_weightRen != _engines_4_io_weightRen) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed at LinearTileDmaCore.scala:147\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_6 & _engines_0_io_weightReadK != _engines_4_io_weightReadK) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed at LinearTileDmaCore.scala:148\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_6 & _engines_0_io_done != _engines_4_io_done) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed at LinearTileDmaCore.scala:149\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_7 & _engines_0_io_k != _engines_5_io_k) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed at LinearTileDmaCore.scala:146\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_7 & _engines_0_io_weightRen != _engines_5_io_weightRen) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed at LinearTileDmaCore.scala:147\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_7 & _engines_0_io_weightReadK != _engines_5_io_weightReadK) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed at LinearTileDmaCore.scala:148\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_7 & _engines_0_io_done != _engines_5_io_done) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed at LinearTileDmaCore.scala:149\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_8 & _engines_0_io_k != _engines_6_io_k) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed at LinearTileDmaCore.scala:146\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_8 & _engines_0_io_weightRen != _engines_6_io_weightRen) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed at LinearTileDmaCore.scala:147\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_8 & _engines_0_io_weightReadK != _engines_6_io_weightReadK) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed at LinearTileDmaCore.scala:148\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_8 & _engines_0_io_done != _engines_6_io_done) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed at LinearTileDmaCore.scala:149\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_9 & _engines_0_io_k != _engines_7_io_k) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed at LinearTileDmaCore.scala:146\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_9 & _engines_0_io_weightRen != _engines_7_io_weightRen) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed at LinearTileDmaCore.scala:147\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_9 & _engines_0_io_weightReadK != _engines_7_io_weightReadK) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed at LinearTileDmaCore.scala:148\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_9 & _engines_0_io_done != _engines_7_io_done) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed at LinearTileDmaCore.scala:149\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_10
+          & ~(~active & ~running & _io_clearReady_T_3 & ~clearing & ~clearFire
+              & _bias_io_hostIdle)) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed at LinearTileDmaCore.scala:178\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_10 & ~((|io_validRows) & io_validRows < 4'h9)) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: START needs 1..8 valid rows\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_10 & io_xLoadWen & io_xLoadSet == io_xRunSet) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: Start must own a completed X set\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11 & count[1]) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed at LinearTileDmaCore.scala:187\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_0_io_result_0 != {{7{_engines_0_io_result_0[40]}},
+                                       _engines_0_io_result_0[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_0_io_result_1 != {{7{_engines_0_io_result_1[40]}},
+                                       _engines_0_io_result_1[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_0_io_result_2 != {{7{_engines_0_io_result_2[40]}},
+                                       _engines_0_io_result_2[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_0_io_result_3 != {{7{_engines_0_io_result_3[40]}},
+                                       _engines_0_io_result_3[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_0_io_result_4 != {{7{_engines_0_io_result_4[40]}},
+                                       _engines_0_io_result_4[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_0_io_result_5 != {{7{_engines_0_io_result_5[40]}},
+                                       _engines_0_io_result_5[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_0_io_result_6 != {{7{_engines_0_io_result_6[40]}},
+                                       _engines_0_io_result_6[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_0_io_result_7 != {{7{_engines_0_io_result_7[40]}},
+                                       _engines_0_io_result_7[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_1_io_result_0 != {{7{_engines_1_io_result_0[40]}},
+                                       _engines_1_io_result_0[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_1_io_result_1 != {{7{_engines_1_io_result_1[40]}},
+                                       _engines_1_io_result_1[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_1_io_result_2 != {{7{_engines_1_io_result_2[40]}},
+                                       _engines_1_io_result_2[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_1_io_result_3 != {{7{_engines_1_io_result_3[40]}},
+                                       _engines_1_io_result_3[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_1_io_result_4 != {{7{_engines_1_io_result_4[40]}},
+                                       _engines_1_io_result_4[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_1_io_result_5 != {{7{_engines_1_io_result_5[40]}},
+                                       _engines_1_io_result_5[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_1_io_result_6 != {{7{_engines_1_io_result_6[40]}},
+                                       _engines_1_io_result_6[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_1_io_result_7 != {{7{_engines_1_io_result_7[40]}},
+                                       _engines_1_io_result_7[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_2_io_result_0 != {{7{_engines_2_io_result_0[40]}},
+                                       _engines_2_io_result_0[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_2_io_result_1 != {{7{_engines_2_io_result_1[40]}},
+                                       _engines_2_io_result_1[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_2_io_result_2 != {{7{_engines_2_io_result_2[40]}},
+                                       _engines_2_io_result_2[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_2_io_result_3 != {{7{_engines_2_io_result_3[40]}},
+                                       _engines_2_io_result_3[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_2_io_result_4 != {{7{_engines_2_io_result_4[40]}},
+                                       _engines_2_io_result_4[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_2_io_result_5 != {{7{_engines_2_io_result_5[40]}},
+                                       _engines_2_io_result_5[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_2_io_result_6 != {{7{_engines_2_io_result_6[40]}},
+                                       _engines_2_io_result_6[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_2_io_result_7 != {{7{_engines_2_io_result_7[40]}},
+                                       _engines_2_io_result_7[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_3_io_result_0 != {{7{_engines_3_io_result_0[40]}},
+                                       _engines_3_io_result_0[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_3_io_result_1 != {{7{_engines_3_io_result_1[40]}},
+                                       _engines_3_io_result_1[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_3_io_result_2 != {{7{_engines_3_io_result_2[40]}},
+                                       _engines_3_io_result_2[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_3_io_result_3 != {{7{_engines_3_io_result_3[40]}},
+                                       _engines_3_io_result_3[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_3_io_result_4 != {{7{_engines_3_io_result_4[40]}},
+                                       _engines_3_io_result_4[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_3_io_result_5 != {{7{_engines_3_io_result_5[40]}},
+                                       _engines_3_io_result_5[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_3_io_result_6 != {{7{_engines_3_io_result_6[40]}},
+                                       _engines_3_io_result_6[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_3_io_result_7 != {{7{_engines_3_io_result_7[40]}},
+                                       _engines_3_io_result_7[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_4_io_result_0 != {{7{_engines_4_io_result_0[40]}},
+                                       _engines_4_io_result_0[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_4_io_result_1 != {{7{_engines_4_io_result_1[40]}},
+                                       _engines_4_io_result_1[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_4_io_result_2 != {{7{_engines_4_io_result_2[40]}},
+                                       _engines_4_io_result_2[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_4_io_result_3 != {{7{_engines_4_io_result_3[40]}},
+                                       _engines_4_io_result_3[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_4_io_result_4 != {{7{_engines_4_io_result_4[40]}},
+                                       _engines_4_io_result_4[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_4_io_result_5 != {{7{_engines_4_io_result_5[40]}},
+                                       _engines_4_io_result_5[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_4_io_result_6 != {{7{_engines_4_io_result_6[40]}},
+                                       _engines_4_io_result_6[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_4_io_result_7 != {{7{_engines_4_io_result_7[40]}},
+                                       _engines_4_io_result_7[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_5_io_result_0 != {{7{_engines_5_io_result_0[40]}},
+                                       _engines_5_io_result_0[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_5_io_result_1 != {{7{_engines_5_io_result_1[40]}},
+                                       _engines_5_io_result_1[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_5_io_result_2 != {{7{_engines_5_io_result_2[40]}},
+                                       _engines_5_io_result_2[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_5_io_result_3 != {{7{_engines_5_io_result_3[40]}},
+                                       _engines_5_io_result_3[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_5_io_result_4 != {{7{_engines_5_io_result_4[40]}},
+                                       _engines_5_io_result_4[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_5_io_result_5 != {{7{_engines_5_io_result_5[40]}},
+                                       _engines_5_io_result_5[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_5_io_result_6 != {{7{_engines_5_io_result_6[40]}},
+                                       _engines_5_io_result_6[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_5_io_result_7 != {{7{_engines_5_io_result_7[40]}},
+                                       _engines_5_io_result_7[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_6_io_result_0 != {{7{_engines_6_io_result_0[40]}},
+                                       _engines_6_io_result_0[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_6_io_result_1 != {{7{_engines_6_io_result_1[40]}},
+                                       _engines_6_io_result_1[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_6_io_result_2 != {{7{_engines_6_io_result_2[40]}},
+                                       _engines_6_io_result_2[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_6_io_result_3 != {{7{_engines_6_io_result_3[40]}},
+                                       _engines_6_io_result_3[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_6_io_result_4 != {{7{_engines_6_io_result_4[40]}},
+                                       _engines_6_io_result_4[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_6_io_result_5 != {{7{_engines_6_io_result_5[40]}},
+                                       _engines_6_io_result_5[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_6_io_result_6 != {{7{_engines_6_io_result_6[40]}},
+                                       _engines_6_io_result_6[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_6_io_result_7 != {{7{_engines_6_io_result_7[40]}},
+                                       _engines_6_io_result_7[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_7_io_result_0 != {{7{_engines_7_io_result_0[40]}},
+                                       _engines_7_io_result_0[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_7_io_result_1 != {{7{_engines_7_io_result_1[40]}},
+                                       _engines_7_io_result_1[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_7_io_result_2 != {{7{_engines_7_io_result_2[40]}},
+                                       _engines_7_io_result_2[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_7_io_result_3 != {{7{_engines_7_io_result_3[40]}},
+                                       _engines_7_io_result_3[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_7_io_result_4 != {{7{_engines_7_io_result_4[40]}},
+                                       _engines_7_io_result_4[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_7_io_result_5 != {{7{_engines_7_io_result_5[40]}},
+                                       _engines_7_io_result_5[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_7_io_result_6 != {{7{_engines_7_io_result_6[40]}},
+                                       _engines_7_io_result_6[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_11
+          & _engines_7_io_result_7 != {{7{_engines_7_io_result_7[40]}},
+                                       _engines_7_io_result_7[40:0]}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: FIFO raw result must fit selected signed storage\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (~reset & (&count)) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed at LinearTileDmaCore.scala:199\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_13 & ~((|validRows) & validRows < 4'h9)) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed at LinearTileDmaCore.scala:201\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_13 & produced - retired != {4'h0, count}) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed at LinearTileDmaCore.scala:202\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_13 & ~(~io_wLoadWen & ~io_biasHostValid & ~io_clearValid)) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed at LinearTileDmaCore.scala:203\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_12 & io_xLoadWen & ~reset & ~_xs_1_7_io_wen_T_8) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: DMA wrote the active X set\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (_GEN_12 & io_outValid_0 & ~reset & _GEN_0 >= validRows) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed at LinearTileDmaCore.scala:205\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+      if (io_outPop & ~io_abort & ~reset & ~io_outValid_0) begin
+        if (`ASSERT_VERBOSE_COND_)
+          $error("Assertion failed: POP without an owned tile row\n");
+        if (`STOP_COND_)
+          $fatal;
+      end
+    end // always @(posedge)
+  `endif // not def SYNTHESIS
+  assign io_outValid_0 = active & (|count) & ~io_abort;
+  reg  [40:0] casez_tmp;
+  always_comb begin
+    casez (outputRow)
+      3'b000:
+        casez_tmp = head ? results_1_0_0 : results_0_0_0;
+      3'b001:
+        casez_tmp = head ? results_1_1_0 : results_0_1_0;
+      3'b010:
+        casez_tmp = head ? results_1_2_0 : results_0_2_0;
+      3'b011:
+        casez_tmp = head ? results_1_3_0 : results_0_3_0;
+      3'b100:
+        casez_tmp = head ? results_1_4_0 : results_0_4_0;
+      3'b101:
+        casez_tmp = head ? results_1_5_0 : results_0_5_0;
+      3'b110:
+        casez_tmp = head ? results_1_6_0 : results_0_6_0;
+      default:
+        casez_tmp = head ? results_1_7_0 : results_0_7_0;
+    endcase
+  end // always_comb
+  reg  [40:0] casez_tmp_0;
+  always_comb begin
+    casez (outputRow)
+      3'b000:
+        casez_tmp_0 = head ? results_1_0_1 : results_0_0_1;
+      3'b001:
+        casez_tmp_0 = head ? results_1_1_1 : results_0_1_1;
+      3'b010:
+        casez_tmp_0 = head ? results_1_2_1 : results_0_2_1;
+      3'b011:
+        casez_tmp_0 = head ? results_1_3_1 : results_0_3_1;
+      3'b100:
+        casez_tmp_0 = head ? results_1_4_1 : results_0_4_1;
+      3'b101:
+        casez_tmp_0 = head ? results_1_5_1 : results_0_5_1;
+      3'b110:
+        casez_tmp_0 = head ? results_1_6_1 : results_0_6_1;
+      default:
+        casez_tmp_0 = head ? results_1_7_1 : results_0_7_1;
+    endcase
+  end // always_comb
+  reg  [40:0] casez_tmp_1;
+  always_comb begin
+    casez (outputRow)
+      3'b000:
+        casez_tmp_1 = head ? results_1_0_2 : results_0_0_2;
+      3'b001:
+        casez_tmp_1 = head ? results_1_1_2 : results_0_1_2;
+      3'b010:
+        casez_tmp_1 = head ? results_1_2_2 : results_0_2_2;
+      3'b011:
+        casez_tmp_1 = head ? results_1_3_2 : results_0_3_2;
+      3'b100:
+        casez_tmp_1 = head ? results_1_4_2 : results_0_4_2;
+      3'b101:
+        casez_tmp_1 = head ? results_1_5_2 : results_0_5_2;
+      3'b110:
+        casez_tmp_1 = head ? results_1_6_2 : results_0_6_2;
+      default:
+        casez_tmp_1 = head ? results_1_7_2 : results_0_7_2;
+    endcase
+  end // always_comb
+  reg  [40:0] casez_tmp_2;
+  always_comb begin
+    casez (outputRow)
+      3'b000:
+        casez_tmp_2 = head ? results_1_0_3 : results_0_0_3;
+      3'b001:
+        casez_tmp_2 = head ? results_1_1_3 : results_0_1_3;
+      3'b010:
+        casez_tmp_2 = head ? results_1_2_3 : results_0_2_3;
+      3'b011:
+        casez_tmp_2 = head ? results_1_3_3 : results_0_3_3;
+      3'b100:
+        casez_tmp_2 = head ? results_1_4_3 : results_0_4_3;
+      3'b101:
+        casez_tmp_2 = head ? results_1_5_3 : results_0_5_3;
+      3'b110:
+        casez_tmp_2 = head ? results_1_6_3 : results_0_6_3;
+      default:
+        casez_tmp_2 = head ? results_1_7_3 : results_0_7_3;
+    endcase
+  end // always_comb
+  reg  [40:0] casez_tmp_3;
+  always_comb begin
+    casez (outputRow)
+      3'b000:
+        casez_tmp_3 = head ? results_1_0_4 : results_0_0_4;
+      3'b001:
+        casez_tmp_3 = head ? results_1_1_4 : results_0_1_4;
+      3'b010:
+        casez_tmp_3 = head ? results_1_2_4 : results_0_2_4;
+      3'b011:
+        casez_tmp_3 = head ? results_1_3_4 : results_0_3_4;
+      3'b100:
+        casez_tmp_3 = head ? results_1_4_4 : results_0_4_4;
+      3'b101:
+        casez_tmp_3 = head ? results_1_5_4 : results_0_5_4;
+      3'b110:
+        casez_tmp_3 = head ? results_1_6_4 : results_0_6_4;
+      default:
+        casez_tmp_3 = head ? results_1_7_4 : results_0_7_4;
+    endcase
+  end // always_comb
+  reg  [40:0] casez_tmp_4;
+  always_comb begin
+    casez (outputRow)
+      3'b000:
+        casez_tmp_4 = head ? results_1_0_5 : results_0_0_5;
+      3'b001:
+        casez_tmp_4 = head ? results_1_1_5 : results_0_1_5;
+      3'b010:
+        casez_tmp_4 = head ? results_1_2_5 : results_0_2_5;
+      3'b011:
+        casez_tmp_4 = head ? results_1_3_5 : results_0_3_5;
+      3'b100:
+        casez_tmp_4 = head ? results_1_4_5 : results_0_4_5;
+      3'b101:
+        casez_tmp_4 = head ? results_1_5_5 : results_0_5_5;
+      3'b110:
+        casez_tmp_4 = head ? results_1_6_5 : results_0_6_5;
+      default:
+        casez_tmp_4 = head ? results_1_7_5 : results_0_7_5;
+    endcase
+  end // always_comb
+  reg  [40:0] casez_tmp_5;
+  always_comb begin
+    casez (outputRow)
+      3'b000:
+        casez_tmp_5 = head ? results_1_0_6 : results_0_0_6;
+      3'b001:
+        casez_tmp_5 = head ? results_1_1_6 : results_0_1_6;
+      3'b010:
+        casez_tmp_5 = head ? results_1_2_6 : results_0_2_6;
+      3'b011:
+        casez_tmp_5 = head ? results_1_3_6 : results_0_3_6;
+      3'b100:
+        casez_tmp_5 = head ? results_1_4_6 : results_0_4_6;
+      3'b101:
+        casez_tmp_5 = head ? results_1_5_6 : results_0_5_6;
+      3'b110:
+        casez_tmp_5 = head ? results_1_6_6 : results_0_6_6;
+      default:
+        casez_tmp_5 = head ? results_1_7_6 : results_0_7_6;
+    endcase
+  end // always_comb
+  reg  [40:0] casez_tmp_6;
+  always_comb begin
+    casez (outputRow)
+      3'b000:
+        casez_tmp_6 = head ? results_1_0_7 : results_0_0_7;
+      3'b001:
+        casez_tmp_6 = head ? results_1_1_7 : results_0_1_7;
+      3'b010:
+        casez_tmp_6 = head ? results_1_2_7 : results_0_2_7;
+      3'b011:
+        casez_tmp_6 = head ? results_1_3_7 : results_0_3_7;
+      3'b100:
+        casez_tmp_6 = head ? results_1_4_7 : results_0_4_7;
+      3'b101:
+        casez_tmp_6 = head ? results_1_5_7 : results_0_5_7;
+      3'b110:
+        casez_tmp_6 = head ? results_1_6_7 : results_0_6_7;
+      default:
+        casez_tmp_6 = head ? results_1_7_7 : results_0_7_7;
+    endcase
+  end // always_comb
+  reg         io_macStep_REG;
+  wire        _GEN_14 = clearIndex == 11'h400 & (biasCleared | _bias_io_clearDone);
+  wire        _GEN_15 = io_abort | clearFire;
+  wire        _GEN_16 = _GEN_1 | ~(enqueue & ~tail);
+  wire        _GEN_17 = _GEN_1 | ~(enqueue & tail);
+  always @(posedge clock) begin
+    if (reset) begin
+      active <= 1'h0;
+      running <= 1'h0;
+      validRows <= 4'h0;
+      runSet <= 1'h0;
+      produced <= 6'h0;
+      retired <= 6'h0;
+      count <= 2'h0;
+      head <= 1'h0;
+      tail <= 1'h0;
+      outputRow <= 3'h0;
+      clearing <= 1'h0;
+      clearIndex <= 11'h0;
+      biasCleared <= 1'h0;
+      clearDone <= 1'h0;
+      takeBias <= 1'h0;
+      io_macStep_REG <= 1'h0;
+    end
+    else begin
+      active <= ~io_abort & (io_start | ~_GEN_2 & active);
+      running <= ~(io_abort | io_start | enqueue) & (launch | running);
+      if (io_abort)
+        validRows <= 4'h0;
+      else if (io_start)
+        validRows <= io_validRows;
+      else if (clearFire)
+        validRows <= 4'h0;
+      if (io_abort | ~io_start) begin
+      end
+      else
+        runSet <= io_xRunSet;
+      if (_GEN_1) begin
+        produced <= 6'h0;
+        retired <= 6'h0;
+        count <= 2'h0;
+        outputRow <= 3'h0;
+      end
+      else begin
+        if (enqueue)
+          produced <= _produced_T;
+        else if (clearFire)
+          produced <= 6'h0;
+        if (retireTile)
+          retired <= retired + 6'h1;
+        else if (clearFire)
+          retired <= 6'h0;
+        if (enqueue == retireTile) begin
+          if (clearFire)
+            count <= 2'h0;
+        end
+        else
+          count <= enqueue ? count + 2'h1 : count - 2'h1;
+        if (pop)
+          outputRow <= retireTile ? 3'h0 : _outputRow_T[2:0];
+        else if (clearFire)
+          outputRow <= 3'h0;
+      end
+      head <= ~_GEN_1 & (retireTile ? ~head : ~clearFire & head);
+      tail <= ~_GEN_1 & (enqueue ? ~tail : ~clearFire & tail);
+      clearing <= ~io_abort & (clearFire | ~(clearing & _GEN_14) & clearing);
+      if (clearFire)
+        clearIndex <= 11'h0;
+      else if (clearing & ~(clearIndex[10]))
+        clearIndex <= clearIndex + 11'h1;
+      biasCleared <= ~_GEN_15 & (clearing & _bias_io_clearDone | biasCleared);
+      clearDone <= ~_GEN_15 & clearing & _GEN_14;
+      takeBias <= launch;
+      io_macStep_REG <= weights_io_ren;
+    end
+    if (_GEN_16) begin
+      if (clearFire) begin
+        results_0_0_0 <= 41'h0;
+        results_0_0_1 <= 41'h0;
+        results_0_0_2 <= 41'h0;
+        results_0_0_3 <= 41'h0;
+        results_0_0_4 <= 41'h0;
+        results_0_0_5 <= 41'h0;
+        results_0_0_6 <= 41'h0;
+        results_0_0_7 <= 41'h0;
+        results_0_1_0 <= 41'h0;
+        results_0_1_1 <= 41'h0;
+        results_0_1_2 <= 41'h0;
+        results_0_1_3 <= 41'h0;
+        results_0_1_4 <= 41'h0;
+        results_0_1_5 <= 41'h0;
+        results_0_1_6 <= 41'h0;
+        results_0_1_7 <= 41'h0;
+        results_0_2_0 <= 41'h0;
+        results_0_2_1 <= 41'h0;
+        results_0_2_2 <= 41'h0;
+        results_0_2_3 <= 41'h0;
+        results_0_2_4 <= 41'h0;
+        results_0_2_5 <= 41'h0;
+        results_0_2_6 <= 41'h0;
+        results_0_2_7 <= 41'h0;
+        results_0_3_0 <= 41'h0;
+        results_0_3_1 <= 41'h0;
+        results_0_3_2 <= 41'h0;
+        results_0_3_3 <= 41'h0;
+        results_0_3_4 <= 41'h0;
+        results_0_3_5 <= 41'h0;
+        results_0_3_6 <= 41'h0;
+        results_0_3_7 <= 41'h0;
+        results_0_4_0 <= 41'h0;
+        results_0_4_1 <= 41'h0;
+        results_0_4_2 <= 41'h0;
+        results_0_4_3 <= 41'h0;
+        results_0_4_4 <= 41'h0;
+        results_0_4_5 <= 41'h0;
+        results_0_4_6 <= 41'h0;
+        results_0_4_7 <= 41'h0;
+        results_0_5_0 <= 41'h0;
+        results_0_5_1 <= 41'h0;
+        results_0_5_2 <= 41'h0;
+        results_0_5_3 <= 41'h0;
+        results_0_5_4 <= 41'h0;
+        results_0_5_5 <= 41'h0;
+        results_0_5_6 <= 41'h0;
+        results_0_5_7 <= 41'h0;
+        results_0_6_0 <= 41'h0;
+        results_0_6_1 <= 41'h0;
+        results_0_6_2 <= 41'h0;
+        results_0_6_3 <= 41'h0;
+        results_0_6_4 <= 41'h0;
+        results_0_6_5 <= 41'h0;
+        results_0_6_6 <= 41'h0;
+        results_0_6_7 <= 41'h0;
+        results_0_7_0 <= 41'h0;
+        results_0_7_1 <= 41'h0;
+        results_0_7_2 <= 41'h0;
+        results_0_7_3 <= 41'h0;
+        results_0_7_4 <= 41'h0;
+        results_0_7_5 <= 41'h0;
+        results_0_7_6 <= 41'h0;
+        results_0_7_7 <= 41'h0;
+      end
+    end
+    else begin
+      results_0_0_0 <= _engines_0_io_result_0[40:0];
+      results_0_0_1 <= _engines_0_io_result_1[40:0];
+      results_0_0_2 <= _engines_0_io_result_2[40:0];
+      results_0_0_3 <= _engines_0_io_result_3[40:0];
+      results_0_0_4 <= _engines_0_io_result_4[40:0];
+      results_0_0_5 <= _engines_0_io_result_5[40:0];
+      results_0_0_6 <= _engines_0_io_result_6[40:0];
+      results_0_0_7 <= _engines_0_io_result_7[40:0];
+      results_0_1_0 <= _engines_1_io_result_0[40:0];
+      results_0_1_1 <= _engines_1_io_result_1[40:0];
+      results_0_1_2 <= _engines_1_io_result_2[40:0];
+      results_0_1_3 <= _engines_1_io_result_3[40:0];
+      results_0_1_4 <= _engines_1_io_result_4[40:0];
+      results_0_1_5 <= _engines_1_io_result_5[40:0];
+      results_0_1_6 <= _engines_1_io_result_6[40:0];
+      results_0_1_7 <= _engines_1_io_result_7[40:0];
+      results_0_2_0 <= _engines_2_io_result_0[40:0];
+      results_0_2_1 <= _engines_2_io_result_1[40:0];
+      results_0_2_2 <= _engines_2_io_result_2[40:0];
+      results_0_2_3 <= _engines_2_io_result_3[40:0];
+      results_0_2_4 <= _engines_2_io_result_4[40:0];
+      results_0_2_5 <= _engines_2_io_result_5[40:0];
+      results_0_2_6 <= _engines_2_io_result_6[40:0];
+      results_0_2_7 <= _engines_2_io_result_7[40:0];
+      results_0_3_0 <= _engines_3_io_result_0[40:0];
+      results_0_3_1 <= _engines_3_io_result_1[40:0];
+      results_0_3_2 <= _engines_3_io_result_2[40:0];
+      results_0_3_3 <= _engines_3_io_result_3[40:0];
+      results_0_3_4 <= _engines_3_io_result_4[40:0];
+      results_0_3_5 <= _engines_3_io_result_5[40:0];
+      results_0_3_6 <= _engines_3_io_result_6[40:0];
+      results_0_3_7 <= _engines_3_io_result_7[40:0];
+      results_0_4_0 <= _engines_4_io_result_0[40:0];
+      results_0_4_1 <= _engines_4_io_result_1[40:0];
+      results_0_4_2 <= _engines_4_io_result_2[40:0];
+      results_0_4_3 <= _engines_4_io_result_3[40:0];
+      results_0_4_4 <= _engines_4_io_result_4[40:0];
+      results_0_4_5 <= _engines_4_io_result_5[40:0];
+      results_0_4_6 <= _engines_4_io_result_6[40:0];
+      results_0_4_7 <= _engines_4_io_result_7[40:0];
+      results_0_5_0 <= _engines_5_io_result_0[40:0];
+      results_0_5_1 <= _engines_5_io_result_1[40:0];
+      results_0_5_2 <= _engines_5_io_result_2[40:0];
+      results_0_5_3 <= _engines_5_io_result_3[40:0];
+      results_0_5_4 <= _engines_5_io_result_4[40:0];
+      results_0_5_5 <= _engines_5_io_result_5[40:0];
+      results_0_5_6 <= _engines_5_io_result_6[40:0];
+      results_0_5_7 <= _engines_5_io_result_7[40:0];
+      results_0_6_0 <= _engines_6_io_result_0[40:0];
+      results_0_6_1 <= _engines_6_io_result_1[40:0];
+      results_0_6_2 <= _engines_6_io_result_2[40:0];
+      results_0_6_3 <= _engines_6_io_result_3[40:0];
+      results_0_6_4 <= _engines_6_io_result_4[40:0];
+      results_0_6_5 <= _engines_6_io_result_5[40:0];
+      results_0_6_6 <= _engines_6_io_result_6[40:0];
+      results_0_6_7 <= _engines_6_io_result_7[40:0];
+      results_0_7_0 <= _engines_7_io_result_0[40:0];
+      results_0_7_1 <= _engines_7_io_result_1[40:0];
+      results_0_7_2 <= _engines_7_io_result_2[40:0];
+      results_0_7_3 <= _engines_7_io_result_3[40:0];
+      results_0_7_4 <= _engines_7_io_result_4[40:0];
+      results_0_7_5 <= _engines_7_io_result_5[40:0];
+      results_0_7_6 <= _engines_7_io_result_6[40:0];
+      results_0_7_7 <= _engines_7_io_result_7[40:0];
+    end
+    if (_GEN_17) begin
+      if (clearFire) begin
+        results_1_0_0 <= 41'h0;
+        results_1_0_1 <= 41'h0;
+        results_1_0_2 <= 41'h0;
+        results_1_0_3 <= 41'h0;
+        results_1_0_4 <= 41'h0;
+        results_1_0_5 <= 41'h0;
+        results_1_0_6 <= 41'h0;
+        results_1_0_7 <= 41'h0;
+        results_1_1_0 <= 41'h0;
+        results_1_1_1 <= 41'h0;
+        results_1_1_2 <= 41'h0;
+        results_1_1_3 <= 41'h0;
+        results_1_1_4 <= 41'h0;
+        results_1_1_5 <= 41'h0;
+        results_1_1_6 <= 41'h0;
+        results_1_1_7 <= 41'h0;
+        results_1_2_0 <= 41'h0;
+        results_1_2_1 <= 41'h0;
+        results_1_2_2 <= 41'h0;
+        results_1_2_3 <= 41'h0;
+        results_1_2_4 <= 41'h0;
+        results_1_2_5 <= 41'h0;
+        results_1_2_6 <= 41'h0;
+        results_1_2_7 <= 41'h0;
+        results_1_3_0 <= 41'h0;
+        results_1_3_1 <= 41'h0;
+        results_1_3_2 <= 41'h0;
+        results_1_3_3 <= 41'h0;
+        results_1_3_4 <= 41'h0;
+        results_1_3_5 <= 41'h0;
+        results_1_3_6 <= 41'h0;
+        results_1_3_7 <= 41'h0;
+        results_1_4_0 <= 41'h0;
+        results_1_4_1 <= 41'h0;
+        results_1_4_2 <= 41'h0;
+        results_1_4_3 <= 41'h0;
+        results_1_4_4 <= 41'h0;
+        results_1_4_5 <= 41'h0;
+        results_1_4_6 <= 41'h0;
+        results_1_4_7 <= 41'h0;
+        results_1_5_0 <= 41'h0;
+        results_1_5_1 <= 41'h0;
+        results_1_5_2 <= 41'h0;
+        results_1_5_3 <= 41'h0;
+        results_1_5_4 <= 41'h0;
+        results_1_5_5 <= 41'h0;
+        results_1_5_6 <= 41'h0;
+        results_1_5_7 <= 41'h0;
+        results_1_6_0 <= 41'h0;
+        results_1_6_1 <= 41'h0;
+        results_1_6_2 <= 41'h0;
+        results_1_6_3 <= 41'h0;
+        results_1_6_4 <= 41'h0;
+        results_1_6_5 <= 41'h0;
+        results_1_6_6 <= 41'h0;
+        results_1_6_7 <= 41'h0;
+        results_1_7_0 <= 41'h0;
+        results_1_7_1 <= 41'h0;
+        results_1_7_2 <= 41'h0;
+        results_1_7_3 <= 41'h0;
+        results_1_7_4 <= 41'h0;
+        results_1_7_5 <= 41'h0;
+        results_1_7_6 <= 41'h0;
+        results_1_7_7 <= 41'h0;
+      end
+    end
+    else begin
+      results_1_0_0 <= _engines_0_io_result_0[40:0];
+      results_1_0_1 <= _engines_0_io_result_1[40:0];
+      results_1_0_2 <= _engines_0_io_result_2[40:0];
+      results_1_0_3 <= _engines_0_io_result_3[40:0];
+      results_1_0_4 <= _engines_0_io_result_4[40:0];
+      results_1_0_5 <= _engines_0_io_result_5[40:0];
+      results_1_0_6 <= _engines_0_io_result_6[40:0];
+      results_1_0_7 <= _engines_0_io_result_7[40:0];
+      results_1_1_0 <= _engines_1_io_result_0[40:0];
+      results_1_1_1 <= _engines_1_io_result_1[40:0];
+      results_1_1_2 <= _engines_1_io_result_2[40:0];
+      results_1_1_3 <= _engines_1_io_result_3[40:0];
+      results_1_1_4 <= _engines_1_io_result_4[40:0];
+      results_1_1_5 <= _engines_1_io_result_5[40:0];
+      results_1_1_6 <= _engines_1_io_result_6[40:0];
+      results_1_1_7 <= _engines_1_io_result_7[40:0];
+      results_1_2_0 <= _engines_2_io_result_0[40:0];
+      results_1_2_1 <= _engines_2_io_result_1[40:0];
+      results_1_2_2 <= _engines_2_io_result_2[40:0];
+      results_1_2_3 <= _engines_2_io_result_3[40:0];
+      results_1_2_4 <= _engines_2_io_result_4[40:0];
+      results_1_2_5 <= _engines_2_io_result_5[40:0];
+      results_1_2_6 <= _engines_2_io_result_6[40:0];
+      results_1_2_7 <= _engines_2_io_result_7[40:0];
+      results_1_3_0 <= _engines_3_io_result_0[40:0];
+      results_1_3_1 <= _engines_3_io_result_1[40:0];
+      results_1_3_2 <= _engines_3_io_result_2[40:0];
+      results_1_3_3 <= _engines_3_io_result_3[40:0];
+      results_1_3_4 <= _engines_3_io_result_4[40:0];
+      results_1_3_5 <= _engines_3_io_result_5[40:0];
+      results_1_3_6 <= _engines_3_io_result_6[40:0];
+      results_1_3_7 <= _engines_3_io_result_7[40:0];
+      results_1_4_0 <= _engines_4_io_result_0[40:0];
+      results_1_4_1 <= _engines_4_io_result_1[40:0];
+      results_1_4_2 <= _engines_4_io_result_2[40:0];
+      results_1_4_3 <= _engines_4_io_result_3[40:0];
+      results_1_4_4 <= _engines_4_io_result_4[40:0];
+      results_1_4_5 <= _engines_4_io_result_5[40:0];
+      results_1_4_6 <= _engines_4_io_result_6[40:0];
+      results_1_4_7 <= _engines_4_io_result_7[40:0];
+      results_1_5_0 <= _engines_5_io_result_0[40:0];
+      results_1_5_1 <= _engines_5_io_result_1[40:0];
+      results_1_5_2 <= _engines_5_io_result_2[40:0];
+      results_1_5_3 <= _engines_5_io_result_3[40:0];
+      results_1_5_4 <= _engines_5_io_result_4[40:0];
+      results_1_5_5 <= _engines_5_io_result_5[40:0];
+      results_1_5_6 <= _engines_5_io_result_6[40:0];
+      results_1_5_7 <= _engines_5_io_result_7[40:0];
+      results_1_6_0 <= _engines_6_io_result_0[40:0];
+      results_1_6_1 <= _engines_6_io_result_1[40:0];
+      results_1_6_2 <= _engines_6_io_result_2[40:0];
+      results_1_6_3 <= _engines_6_io_result_3[40:0];
+      results_1_6_4 <= _engines_6_io_result_4[40:0];
+      results_1_6_5 <= _engines_6_io_result_5[40:0];
+      results_1_6_6 <= _engines_6_io_result_6[40:0];
+      results_1_6_7 <= _engines_6_io_result_7[40:0];
+      results_1_7_0 <= _engines_7_io_result_0[40:0];
+      results_1_7_1 <= _engines_7_io_result_1[40:0];
+      results_1_7_2 <= _engines_7_io_result_2[40:0];
+      results_1_7_3 <= _engines_7_io_result_3[40:0];
+      results_1_7_4 <= _engines_7_io_result_4[40:0];
+      results_1_7_5 <= _engines_7_io_result_5[40:0];
+      results_1_7_6 <= _engines_7_io_result_6[40:0];
+      results_1_7_7 <= _engines_7_io_result_7[40:0];
+    end
+    if (_GEN_16) begin
+      if (clearFire)
+        tags_0 <= 5'h0;
+    end
+    else
+      tags_0 <= produced[4:0];
+    if (_GEN_17) begin
+      if (clearFire)
+        tags_1 <= 5'h0;
+    end
+    else
+      tags_1 <= produced[4:0];
+  end // always @(posedge)
+  `ifdef ENABLE_INITIAL_REG_
+    `ifdef FIRRTL_BEFORE_INITIAL
+      `FIRRTL_BEFORE_INITIAL
+    `endif // FIRRTL_BEFORE_INITIAL
+    logic [31:0] _RANDOM[0:165];
+    initial begin
+      `ifdef INIT_RANDOM_PROLOG_
+        `INIT_RANDOM_PROLOG_
+      `endif // INIT_RANDOM_PROLOG_
+      `ifdef RANDOMIZE_REG_INIT
+        for (logic [7:0] i = 8'h0; i < 8'hA6; i += 8'h1) begin
+          _RANDOM[i] = `RANDOM;
+        end
+        active = _RANDOM[8'h0][0];
+        running = _RANDOM[8'h0][1];
+        validRows = _RANDOM[8'h0][5:2];
+        runSet = _RANDOM[8'h0][6];
+        produced = _RANDOM[8'h0][12:7];
+        retired = _RANDOM[8'h0][18:13];
+        count = _RANDOM[8'h0][20:19];
+        head = _RANDOM[8'h0][21];
+        tail = _RANDOM[8'h0][22];
+        outputRow = _RANDOM[8'h0][25:23];
+        results_0_0_0 = {_RANDOM[8'h0][31:26], _RANDOM[8'h1], _RANDOM[8'h2][2:0]};
+        results_0_0_1 = {_RANDOM[8'h2][31:3], _RANDOM[8'h3][11:0]};
+        results_0_0_2 = {_RANDOM[8'h3][31:12], _RANDOM[8'h4][20:0]};
+        results_0_0_3 = {_RANDOM[8'h4][31:21], _RANDOM[8'h5][29:0]};
+        results_0_0_4 = {_RANDOM[8'h5][31:30], _RANDOM[8'h6], _RANDOM[8'h7][6:0]};
+        results_0_0_5 = {_RANDOM[8'h7][31:7], _RANDOM[8'h8][15:0]};
+        results_0_0_6 = {_RANDOM[8'h8][31:16], _RANDOM[8'h9][24:0]};
+        results_0_0_7 = {_RANDOM[8'h9][31:25], _RANDOM[8'hA], _RANDOM[8'hB][1:0]};
+        results_0_1_0 = {_RANDOM[8'hB][31:2], _RANDOM[8'hC][10:0]};
+        results_0_1_1 = {_RANDOM[8'hC][31:11], _RANDOM[8'hD][19:0]};
+        results_0_1_2 = {_RANDOM[8'hD][31:20], _RANDOM[8'hE][28:0]};
+        results_0_1_3 = {_RANDOM[8'hE][31:29], _RANDOM[8'hF], _RANDOM[8'h10][5:0]};
+        results_0_1_4 = {_RANDOM[8'h10][31:6], _RANDOM[8'h11][14:0]};
+        results_0_1_5 = {_RANDOM[8'h11][31:15], _RANDOM[8'h12][23:0]};
+        results_0_1_6 = {_RANDOM[8'h12][31:24], _RANDOM[8'h13], _RANDOM[8'h14][0]};
+        results_0_1_7 = {_RANDOM[8'h14][31:1], _RANDOM[8'h15][9:0]};
+        results_0_2_0 = {_RANDOM[8'h15][31:10], _RANDOM[8'h16][18:0]};
+        results_0_2_1 = {_RANDOM[8'h16][31:19], _RANDOM[8'h17][27:0]};
+        results_0_2_2 = {_RANDOM[8'h17][31:28], _RANDOM[8'h18], _RANDOM[8'h19][4:0]};
+        results_0_2_3 = {_RANDOM[8'h19][31:5], _RANDOM[8'h1A][13:0]};
+        results_0_2_4 = {_RANDOM[8'h1A][31:14], _RANDOM[8'h1B][22:0]};
+        results_0_2_5 = {_RANDOM[8'h1B][31:23], _RANDOM[8'h1C]};
+        results_0_2_6 = {_RANDOM[8'h1D], _RANDOM[8'h1E][8:0]};
+        results_0_2_7 = {_RANDOM[8'h1E][31:9], _RANDOM[8'h1F][17:0]};
+        results_0_3_0 = {_RANDOM[8'h1F][31:18], _RANDOM[8'h20][26:0]};
+        results_0_3_1 = {_RANDOM[8'h20][31:27], _RANDOM[8'h21], _RANDOM[8'h22][3:0]};
+        results_0_3_2 = {_RANDOM[8'h22][31:4], _RANDOM[8'h23][12:0]};
+        results_0_3_3 = {_RANDOM[8'h23][31:13], _RANDOM[8'h24][21:0]};
+        results_0_3_4 = {_RANDOM[8'h24][31:22], _RANDOM[8'h25][30:0]};
+        results_0_3_5 = {_RANDOM[8'h25][31], _RANDOM[8'h26], _RANDOM[8'h27][7:0]};
+        results_0_3_6 = {_RANDOM[8'h27][31:8], _RANDOM[8'h28][16:0]};
+        results_0_3_7 = {_RANDOM[8'h28][31:17], _RANDOM[8'h29][25:0]};
+        results_0_4_0 = {_RANDOM[8'h29][31:26], _RANDOM[8'h2A], _RANDOM[8'h2B][2:0]};
+        results_0_4_1 = {_RANDOM[8'h2B][31:3], _RANDOM[8'h2C][11:0]};
+        results_0_4_2 = {_RANDOM[8'h2C][31:12], _RANDOM[8'h2D][20:0]};
+        results_0_4_3 = {_RANDOM[8'h2D][31:21], _RANDOM[8'h2E][29:0]};
+        results_0_4_4 = {_RANDOM[8'h2E][31:30], _RANDOM[8'h2F], _RANDOM[8'h30][6:0]};
+        results_0_4_5 = {_RANDOM[8'h30][31:7], _RANDOM[8'h31][15:0]};
+        results_0_4_6 = {_RANDOM[8'h31][31:16], _RANDOM[8'h32][24:0]};
+        results_0_4_7 = {_RANDOM[8'h32][31:25], _RANDOM[8'h33], _RANDOM[8'h34][1:0]};
+        results_0_5_0 = {_RANDOM[8'h34][31:2], _RANDOM[8'h35][10:0]};
+        results_0_5_1 = {_RANDOM[8'h35][31:11], _RANDOM[8'h36][19:0]};
+        results_0_5_2 = {_RANDOM[8'h36][31:20], _RANDOM[8'h37][28:0]};
+        results_0_5_3 = {_RANDOM[8'h37][31:29], _RANDOM[8'h38], _RANDOM[8'h39][5:0]};
+        results_0_5_4 = {_RANDOM[8'h39][31:6], _RANDOM[8'h3A][14:0]};
+        results_0_5_5 = {_RANDOM[8'h3A][31:15], _RANDOM[8'h3B][23:0]};
+        results_0_5_6 = {_RANDOM[8'h3B][31:24], _RANDOM[8'h3C], _RANDOM[8'h3D][0]};
+        results_0_5_7 = {_RANDOM[8'h3D][31:1], _RANDOM[8'h3E][9:0]};
+        results_0_6_0 = {_RANDOM[8'h3E][31:10], _RANDOM[8'h3F][18:0]};
+        results_0_6_1 = {_RANDOM[8'h3F][31:19], _RANDOM[8'h40][27:0]};
+        results_0_6_2 = {_RANDOM[8'h40][31:28], _RANDOM[8'h41], _RANDOM[8'h42][4:0]};
+        results_0_6_3 = {_RANDOM[8'h42][31:5], _RANDOM[8'h43][13:0]};
+        results_0_6_4 = {_RANDOM[8'h43][31:14], _RANDOM[8'h44][22:0]};
+        results_0_6_5 = {_RANDOM[8'h44][31:23], _RANDOM[8'h45]};
+        results_0_6_6 = {_RANDOM[8'h46], _RANDOM[8'h47][8:0]};
+        results_0_6_7 = {_RANDOM[8'h47][31:9], _RANDOM[8'h48][17:0]};
+        results_0_7_0 = {_RANDOM[8'h48][31:18], _RANDOM[8'h49][26:0]};
+        results_0_7_1 = {_RANDOM[8'h49][31:27], _RANDOM[8'h4A], _RANDOM[8'h4B][3:0]};
+        results_0_7_2 = {_RANDOM[8'h4B][31:4], _RANDOM[8'h4C][12:0]};
+        results_0_7_3 = {_RANDOM[8'h4C][31:13], _RANDOM[8'h4D][21:0]};
+        results_0_7_4 = {_RANDOM[8'h4D][31:22], _RANDOM[8'h4E][30:0]};
+        results_0_7_5 = {_RANDOM[8'h4E][31], _RANDOM[8'h4F], _RANDOM[8'h50][7:0]};
+        results_0_7_6 = {_RANDOM[8'h50][31:8], _RANDOM[8'h51][16:0]};
+        results_0_7_7 = {_RANDOM[8'h51][31:17], _RANDOM[8'h52][25:0]};
+        results_1_0_0 = {_RANDOM[8'h52][31:26], _RANDOM[8'h53], _RANDOM[8'h54][2:0]};
+        results_1_0_1 = {_RANDOM[8'h54][31:3], _RANDOM[8'h55][11:0]};
+        results_1_0_2 = {_RANDOM[8'h55][31:12], _RANDOM[8'h56][20:0]};
+        results_1_0_3 = {_RANDOM[8'h56][31:21], _RANDOM[8'h57][29:0]};
+        results_1_0_4 = {_RANDOM[8'h57][31:30], _RANDOM[8'h58], _RANDOM[8'h59][6:0]};
+        results_1_0_5 = {_RANDOM[8'h59][31:7], _RANDOM[8'h5A][15:0]};
+        results_1_0_6 = {_RANDOM[8'h5A][31:16], _RANDOM[8'h5B][24:0]};
+        results_1_0_7 = {_RANDOM[8'h5B][31:25], _RANDOM[8'h5C], _RANDOM[8'h5D][1:0]};
+        results_1_1_0 = {_RANDOM[8'h5D][31:2], _RANDOM[8'h5E][10:0]};
+        results_1_1_1 = {_RANDOM[8'h5E][31:11], _RANDOM[8'h5F][19:0]};
+        results_1_1_2 = {_RANDOM[8'h5F][31:20], _RANDOM[8'h60][28:0]};
+        results_1_1_3 = {_RANDOM[8'h60][31:29], _RANDOM[8'h61], _RANDOM[8'h62][5:0]};
+        results_1_1_4 = {_RANDOM[8'h62][31:6], _RANDOM[8'h63][14:0]};
+        results_1_1_5 = {_RANDOM[8'h63][31:15], _RANDOM[8'h64][23:0]};
+        results_1_1_6 = {_RANDOM[8'h64][31:24], _RANDOM[8'h65], _RANDOM[8'h66][0]};
+        results_1_1_7 = {_RANDOM[8'h66][31:1], _RANDOM[8'h67][9:0]};
+        results_1_2_0 = {_RANDOM[8'h67][31:10], _RANDOM[8'h68][18:0]};
+        results_1_2_1 = {_RANDOM[8'h68][31:19], _RANDOM[8'h69][27:0]};
+        results_1_2_2 = {_RANDOM[8'h69][31:28], _RANDOM[8'h6A], _RANDOM[8'h6B][4:0]};
+        results_1_2_3 = {_RANDOM[8'h6B][31:5], _RANDOM[8'h6C][13:0]};
+        results_1_2_4 = {_RANDOM[8'h6C][31:14], _RANDOM[8'h6D][22:0]};
+        results_1_2_5 = {_RANDOM[8'h6D][31:23], _RANDOM[8'h6E]};
+        results_1_2_6 = {_RANDOM[8'h6F], _RANDOM[8'h70][8:0]};
+        results_1_2_7 = {_RANDOM[8'h70][31:9], _RANDOM[8'h71][17:0]};
+        results_1_3_0 = {_RANDOM[8'h71][31:18], _RANDOM[8'h72][26:0]};
+        results_1_3_1 = {_RANDOM[8'h72][31:27], _RANDOM[8'h73], _RANDOM[8'h74][3:0]};
+        results_1_3_2 = {_RANDOM[8'h74][31:4], _RANDOM[8'h75][12:0]};
+        results_1_3_3 = {_RANDOM[8'h75][31:13], _RANDOM[8'h76][21:0]};
+        results_1_3_4 = {_RANDOM[8'h76][31:22], _RANDOM[8'h77][30:0]};
+        results_1_3_5 = {_RANDOM[8'h77][31], _RANDOM[8'h78], _RANDOM[8'h79][7:0]};
+        results_1_3_6 = {_RANDOM[8'h79][31:8], _RANDOM[8'h7A][16:0]};
+        results_1_3_7 = {_RANDOM[8'h7A][31:17], _RANDOM[8'h7B][25:0]};
+        results_1_4_0 = {_RANDOM[8'h7B][31:26], _RANDOM[8'h7C], _RANDOM[8'h7D][2:0]};
+        results_1_4_1 = {_RANDOM[8'h7D][31:3], _RANDOM[8'h7E][11:0]};
+        results_1_4_2 = {_RANDOM[8'h7E][31:12], _RANDOM[8'h7F][20:0]};
+        results_1_4_3 = {_RANDOM[8'h7F][31:21], _RANDOM[8'h80][29:0]};
+        results_1_4_4 = {_RANDOM[8'h80][31:30], _RANDOM[8'h81], _RANDOM[8'h82][6:0]};
+        results_1_4_5 = {_RANDOM[8'h82][31:7], _RANDOM[8'h83][15:0]};
+        results_1_4_6 = {_RANDOM[8'h83][31:16], _RANDOM[8'h84][24:0]};
+        results_1_4_7 = {_RANDOM[8'h84][31:25], _RANDOM[8'h85], _RANDOM[8'h86][1:0]};
+        results_1_5_0 = {_RANDOM[8'h86][31:2], _RANDOM[8'h87][10:0]};
+        results_1_5_1 = {_RANDOM[8'h87][31:11], _RANDOM[8'h88][19:0]};
+        results_1_5_2 = {_RANDOM[8'h88][31:20], _RANDOM[8'h89][28:0]};
+        results_1_5_3 = {_RANDOM[8'h89][31:29], _RANDOM[8'h8A], _RANDOM[8'h8B][5:0]};
+        results_1_5_4 = {_RANDOM[8'h8B][31:6], _RANDOM[8'h8C][14:0]};
+        results_1_5_5 = {_RANDOM[8'h8C][31:15], _RANDOM[8'h8D][23:0]};
+        results_1_5_6 = {_RANDOM[8'h8D][31:24], _RANDOM[8'h8E], _RANDOM[8'h8F][0]};
+        results_1_5_7 = {_RANDOM[8'h8F][31:1], _RANDOM[8'h90][9:0]};
+        results_1_6_0 = {_RANDOM[8'h90][31:10], _RANDOM[8'h91][18:0]};
+        results_1_6_1 = {_RANDOM[8'h91][31:19], _RANDOM[8'h92][27:0]};
+        results_1_6_2 = {_RANDOM[8'h92][31:28], _RANDOM[8'h93], _RANDOM[8'h94][4:0]};
+        results_1_6_3 = {_RANDOM[8'h94][31:5], _RANDOM[8'h95][13:0]};
+        results_1_6_4 = {_RANDOM[8'h95][31:14], _RANDOM[8'h96][22:0]};
+        results_1_6_5 = {_RANDOM[8'h96][31:23], _RANDOM[8'h97]};
+        results_1_6_6 = {_RANDOM[8'h98], _RANDOM[8'h99][8:0]};
+        results_1_6_7 = {_RANDOM[8'h99][31:9], _RANDOM[8'h9A][17:0]};
+        results_1_7_0 = {_RANDOM[8'h9A][31:18], _RANDOM[8'h9B][26:0]};
+        results_1_7_1 = {_RANDOM[8'h9B][31:27], _RANDOM[8'h9C], _RANDOM[8'h9D][3:0]};
+        results_1_7_2 = {_RANDOM[8'h9D][31:4], _RANDOM[8'h9E][12:0]};
+        results_1_7_3 = {_RANDOM[8'h9E][31:13], _RANDOM[8'h9F][21:0]};
+        results_1_7_4 = {_RANDOM[8'h9F][31:22], _RANDOM[8'hA0][30:0]};
+        results_1_7_5 = {_RANDOM[8'hA0][31], _RANDOM[8'hA1], _RANDOM[8'hA2][7:0]};
+        results_1_7_6 = {_RANDOM[8'hA2][31:8], _RANDOM[8'hA3][16:0]};
+        results_1_7_7 = {_RANDOM[8'hA3][31:17], _RANDOM[8'hA4][25:0]};
+        tags_0 = _RANDOM[8'hA4][30:26];
+        tags_1 = {_RANDOM[8'hA4][31], _RANDOM[8'hA5][3:0]};
+        clearing = _RANDOM[8'hA5][4];
+        clearIndex = _RANDOM[8'hA5][15:5];
+        biasCleared = _RANDOM[8'hA5][16];
+        clearDone = _RANDOM[8'hA5][17];
+        takeBias = _RANDOM[8'hA5][18];
+        io_macStep_REG = _RANDOM[8'hA5][19];
+      `endif // RANDOMIZE_REG_INIT
+    end // initial
+    `ifdef FIRRTL_AFTER_INITIAL
+      `FIRRTL_AFTER_INITIAL
+    `endif // FIRRTL_AFTER_INITIAL
+  `endif // ENABLE_INITIAL_REG_
+  DmaBiasSramPrefetch bias (
+    .clock            (clock),
+    .reset            (reset | io_abort),
+    .io_computeActive (active & ~io_abort),
+    .io_clearValid    (clearFire),
+    .io_clearReady    (_bias_io_clearReady),
+    .io_clearDone     (_bias_io_clearDone),
+    .io_hostValid     (io_biasHostValid & ~active & ~clearing & ~clearFire & ~io_abort),
+    .io_hostReady     (_bias_io_hostReady),
+    .io_hostAddr      (io_biasHostAddr),
+    .io_hostData      (io_biasHostData),
+    .io_rspValid      (_bias_io_rspValid),
+    .io_rspError      (io_biasRspError),
+    .io_hostIdle      (_bias_io_hostIdle),
+    .io_groupReqValid ((active & ~running & ~(produced[5]) | nextBiasDemand) & ~io_abort),
+    .io_groupReqTag   (nextBiasDemand ? _produced_T[4:0] : produced[4:0]),
+    .io_groupValid    (_bias_io_groupValid),
+    .io_groupTag      (_bias_io_groupTag),
+    .io_groupBias_0   (_bias_io_groupBias_0),
+    .io_groupBias_1   (_bias_io_groupBias_1),
+    .io_groupBias_2   (_bias_io_groupBias_2),
+    .io_groupBias_3   (_bias_io_groupBias_3),
+    .io_groupBias_4   (_bias_io_groupBias_4),
+    .io_groupBias_5   (_bias_io_groupBias_5),
+    .io_groupBias_6   (_bias_io_groupBias_6),
+    .io_groupBias_7   (_bias_io_groupBias_7),
+    .io_groupTake     (takeBias & ~io_abort)
+  );
+  DotProductEngine_Acc41_Result41 engines_0 (
+    .clock          (clock),
+    .reset          (_GEN),
+    .io_start       (launch & (|validRows)),
+    .io_x           (runSet ? _xs_1_0_io_rdata : _xs_0_0_io_rdata),
+    .io_w_0         (_weights_io_rdata_0),
+    .io_w_1         (_weights_io_rdata_1),
+    .io_w_2         (_weights_io_rdata_2),
+    .io_w_3         (_weights_io_rdata_3),
+    .io_w_4         (_weights_io_rdata_4),
+    .io_w_5         (_weights_io_rdata_5),
+    .io_w_6         (_weights_io_rdata_6),
+    .io_w_7         (_weights_io_rdata_7),
+    .io_bias_0      (_bias_io_groupBias_0),
+    .io_bias_1      (_bias_io_groupBias_1),
+    .io_bias_2      (_bias_io_groupBias_2),
+    .io_bias_3      (_bias_io_groupBias_3),
+    .io_bias_4      (_bias_io_groupBias_4),
+    .io_bias_5      (_bias_io_groupBias_5),
+    .io_bias_6      (_bias_io_groupBias_6),
+    .io_bias_7      (_bias_io_groupBias_7),
+    .io_weightRen   (_engines_0_io_weightRen),
+    .io_weightReadK (_engines_0_io_weightReadK),
+    .io_k           (_engines_0_io_k),
+    .io_done        (_engines_0_io_done),
+    .io_result_0    (_engines_0_io_result_0),
+    .io_result_1    (_engines_0_io_result_1),
+    .io_result_2    (_engines_0_io_result_2),
+    .io_result_3    (_engines_0_io_result_3),
+    .io_result_4    (_engines_0_io_result_4),
+    .io_result_5    (_engines_0_io_result_5),
+    .io_result_6    (_engines_0_io_result_6),
+    .io_result_7    (_engines_0_io_result_7)
+  );
+  DotProductEngine_Acc41_Result41 engines_1 (
+    .clock          (clock),
+    .reset          (_GEN),
+    .io_start       (launch & _engines_1_io_start_T),
+    .io_x           (runSet ? _xs_1_1_io_rdata : _xs_0_1_io_rdata),
+    .io_w_0         (_weights_io_rdata_0),
+    .io_w_1         (_weights_io_rdata_1),
+    .io_w_2         (_weights_io_rdata_2),
+    .io_w_3         (_weights_io_rdata_3),
+    .io_w_4         (_weights_io_rdata_4),
+    .io_w_5         (_weights_io_rdata_5),
+    .io_w_6         (_weights_io_rdata_6),
+    .io_w_7         (_weights_io_rdata_7),
+    .io_bias_0      (_bias_io_groupBias_0),
+    .io_bias_1      (_bias_io_groupBias_1),
+    .io_bias_2      (_bias_io_groupBias_2),
+    .io_bias_3      (_bias_io_groupBias_3),
+    .io_bias_4      (_bias_io_groupBias_4),
+    .io_bias_5      (_bias_io_groupBias_5),
+    .io_bias_6      (_bias_io_groupBias_6),
+    .io_bias_7      (_bias_io_groupBias_7),
+    .io_weightRen   (_engines_1_io_weightRen),
+    .io_weightReadK (_engines_1_io_weightReadK),
+    .io_k           (_engines_1_io_k),
+    .io_done        (_engines_1_io_done),
+    .io_result_0    (_engines_1_io_result_0),
+    .io_result_1    (_engines_1_io_result_1),
+    .io_result_2    (_engines_1_io_result_2),
+    .io_result_3    (_engines_1_io_result_3),
+    .io_result_4    (_engines_1_io_result_4),
+    .io_result_5    (_engines_1_io_result_5),
+    .io_result_6    (_engines_1_io_result_6),
+    .io_result_7    (_engines_1_io_result_7)
+  );
+  DotProductEngine_Acc41_Result41 engines_2 (
+    .clock          (clock),
+    .reset          (_GEN),
+    .io_start       (launch & _engines_2_io_start_T),
+    .io_x           (runSet ? _xs_1_2_io_rdata : _xs_0_2_io_rdata),
+    .io_w_0         (_weights_io_rdata_0),
+    .io_w_1         (_weights_io_rdata_1),
+    .io_w_2         (_weights_io_rdata_2),
+    .io_w_3         (_weights_io_rdata_3),
+    .io_w_4         (_weights_io_rdata_4),
+    .io_w_5         (_weights_io_rdata_5),
+    .io_w_6         (_weights_io_rdata_6),
+    .io_w_7         (_weights_io_rdata_7),
+    .io_bias_0      (_bias_io_groupBias_0),
+    .io_bias_1      (_bias_io_groupBias_1),
+    .io_bias_2      (_bias_io_groupBias_2),
+    .io_bias_3      (_bias_io_groupBias_3),
+    .io_bias_4      (_bias_io_groupBias_4),
+    .io_bias_5      (_bias_io_groupBias_5),
+    .io_bias_6      (_bias_io_groupBias_6),
+    .io_bias_7      (_bias_io_groupBias_7),
+    .io_weightRen   (_engines_2_io_weightRen),
+    .io_weightReadK (_engines_2_io_weightReadK),
+    .io_k           (_engines_2_io_k),
+    .io_done        (_engines_2_io_done),
+    .io_result_0    (_engines_2_io_result_0),
+    .io_result_1    (_engines_2_io_result_1),
+    .io_result_2    (_engines_2_io_result_2),
+    .io_result_3    (_engines_2_io_result_3),
+    .io_result_4    (_engines_2_io_result_4),
+    .io_result_5    (_engines_2_io_result_5),
+    .io_result_6    (_engines_2_io_result_6),
+    .io_result_7    (_engines_2_io_result_7)
+  );
+  DotProductEngine_Acc41_Result41 engines_3 (
+    .clock          (clock),
+    .reset          (_GEN),
+    .io_start       (launch & _engines_3_io_start_T),
+    .io_x           (runSet ? _xs_1_3_io_rdata : _xs_0_3_io_rdata),
+    .io_w_0         (_weights_io_rdata_0),
+    .io_w_1         (_weights_io_rdata_1),
+    .io_w_2         (_weights_io_rdata_2),
+    .io_w_3         (_weights_io_rdata_3),
+    .io_w_4         (_weights_io_rdata_4),
+    .io_w_5         (_weights_io_rdata_5),
+    .io_w_6         (_weights_io_rdata_6),
+    .io_w_7         (_weights_io_rdata_7),
+    .io_bias_0      (_bias_io_groupBias_0),
+    .io_bias_1      (_bias_io_groupBias_1),
+    .io_bias_2      (_bias_io_groupBias_2),
+    .io_bias_3      (_bias_io_groupBias_3),
+    .io_bias_4      (_bias_io_groupBias_4),
+    .io_bias_5      (_bias_io_groupBias_5),
+    .io_bias_6      (_bias_io_groupBias_6),
+    .io_bias_7      (_bias_io_groupBias_7),
+    .io_weightRen   (_engines_3_io_weightRen),
+    .io_weightReadK (_engines_3_io_weightReadK),
+    .io_k           (_engines_3_io_k),
+    .io_done        (_engines_3_io_done),
+    .io_result_0    (_engines_3_io_result_0),
+    .io_result_1    (_engines_3_io_result_1),
+    .io_result_2    (_engines_3_io_result_2),
+    .io_result_3    (_engines_3_io_result_3),
+    .io_result_4    (_engines_3_io_result_4),
+    .io_result_5    (_engines_3_io_result_5),
+    .io_result_6    (_engines_3_io_result_6),
+    .io_result_7    (_engines_3_io_result_7)
+  );
+  DotProductEngine_Acc41_Result41 engines_4 (
+    .clock          (clock),
+    .reset          (_GEN),
+    .io_start       (launch & _engines_4_io_start_T),
+    .io_x           (runSet ? _xs_1_4_io_rdata : _xs_0_4_io_rdata),
+    .io_w_0         (_weights_io_rdata_0),
+    .io_w_1         (_weights_io_rdata_1),
+    .io_w_2         (_weights_io_rdata_2),
+    .io_w_3         (_weights_io_rdata_3),
+    .io_w_4         (_weights_io_rdata_4),
+    .io_w_5         (_weights_io_rdata_5),
+    .io_w_6         (_weights_io_rdata_6),
+    .io_w_7         (_weights_io_rdata_7),
+    .io_bias_0      (_bias_io_groupBias_0),
+    .io_bias_1      (_bias_io_groupBias_1),
+    .io_bias_2      (_bias_io_groupBias_2),
+    .io_bias_3      (_bias_io_groupBias_3),
+    .io_bias_4      (_bias_io_groupBias_4),
+    .io_bias_5      (_bias_io_groupBias_5),
+    .io_bias_6      (_bias_io_groupBias_6),
+    .io_bias_7      (_bias_io_groupBias_7),
+    .io_weightRen   (_engines_4_io_weightRen),
+    .io_weightReadK (_engines_4_io_weightReadK),
+    .io_k           (_engines_4_io_k),
+    .io_done        (_engines_4_io_done),
+    .io_result_0    (_engines_4_io_result_0),
+    .io_result_1    (_engines_4_io_result_1),
+    .io_result_2    (_engines_4_io_result_2),
+    .io_result_3    (_engines_4_io_result_3),
+    .io_result_4    (_engines_4_io_result_4),
+    .io_result_5    (_engines_4_io_result_5),
+    .io_result_6    (_engines_4_io_result_6),
+    .io_result_7    (_engines_4_io_result_7)
+  );
+  DotProductEngine_Acc41_Result41 engines_5 (
+    .clock          (clock),
+    .reset          (_GEN),
+    .io_start       (launch & _engines_5_io_start_T),
+    .io_x           (runSet ? _xs_1_5_io_rdata : _xs_0_5_io_rdata),
+    .io_w_0         (_weights_io_rdata_0),
+    .io_w_1         (_weights_io_rdata_1),
+    .io_w_2         (_weights_io_rdata_2),
+    .io_w_3         (_weights_io_rdata_3),
+    .io_w_4         (_weights_io_rdata_4),
+    .io_w_5         (_weights_io_rdata_5),
+    .io_w_6         (_weights_io_rdata_6),
+    .io_w_7         (_weights_io_rdata_7),
+    .io_bias_0      (_bias_io_groupBias_0),
+    .io_bias_1      (_bias_io_groupBias_1),
+    .io_bias_2      (_bias_io_groupBias_2),
+    .io_bias_3      (_bias_io_groupBias_3),
+    .io_bias_4      (_bias_io_groupBias_4),
+    .io_bias_5      (_bias_io_groupBias_5),
+    .io_bias_6      (_bias_io_groupBias_6),
+    .io_bias_7      (_bias_io_groupBias_7),
+    .io_weightRen   (_engines_5_io_weightRen),
+    .io_weightReadK (_engines_5_io_weightReadK),
+    .io_k           (_engines_5_io_k),
+    .io_done        (_engines_5_io_done),
+    .io_result_0    (_engines_5_io_result_0),
+    .io_result_1    (_engines_5_io_result_1),
+    .io_result_2    (_engines_5_io_result_2),
+    .io_result_3    (_engines_5_io_result_3),
+    .io_result_4    (_engines_5_io_result_4),
+    .io_result_5    (_engines_5_io_result_5),
+    .io_result_6    (_engines_5_io_result_6),
+    .io_result_7    (_engines_5_io_result_7)
+  );
+  DotProductEngine_Acc41_Result41 engines_6 (
+    .clock          (clock),
+    .reset          (_GEN),
+    .io_start       (launch & _engines_6_io_start_T),
+    .io_x           (runSet ? _xs_1_6_io_rdata : _xs_0_6_io_rdata),
+    .io_w_0         (_weights_io_rdata_0),
+    .io_w_1         (_weights_io_rdata_1),
+    .io_w_2         (_weights_io_rdata_2),
+    .io_w_3         (_weights_io_rdata_3),
+    .io_w_4         (_weights_io_rdata_4),
+    .io_w_5         (_weights_io_rdata_5),
+    .io_w_6         (_weights_io_rdata_6),
+    .io_w_7         (_weights_io_rdata_7),
+    .io_bias_0      (_bias_io_groupBias_0),
+    .io_bias_1      (_bias_io_groupBias_1),
+    .io_bias_2      (_bias_io_groupBias_2),
+    .io_bias_3      (_bias_io_groupBias_3),
+    .io_bias_4      (_bias_io_groupBias_4),
+    .io_bias_5      (_bias_io_groupBias_5),
+    .io_bias_6      (_bias_io_groupBias_6),
+    .io_bias_7      (_bias_io_groupBias_7),
+    .io_weightRen   (_engines_6_io_weightRen),
+    .io_weightReadK (_engines_6_io_weightReadK),
+    .io_k           (_engines_6_io_k),
+    .io_done        (_engines_6_io_done),
+    .io_result_0    (_engines_6_io_result_0),
+    .io_result_1    (_engines_6_io_result_1),
+    .io_result_2    (_engines_6_io_result_2),
+    .io_result_3    (_engines_6_io_result_3),
+    .io_result_4    (_engines_6_io_result_4),
+    .io_result_5    (_engines_6_io_result_5),
+    .io_result_6    (_engines_6_io_result_6),
+    .io_result_7    (_engines_6_io_result_7)
+  );
+  DotProductEngine_Acc41_Result41 engines_7 (
+    .clock          (clock),
+    .reset          (_GEN),
+    .io_start       (launch & validRows[3]),
+    .io_x           (runSet ? _xs_1_7_io_rdata : _xs_0_7_io_rdata),
+    .io_w_0         (_weights_io_rdata_0),
+    .io_w_1         (_weights_io_rdata_1),
+    .io_w_2         (_weights_io_rdata_2),
+    .io_w_3         (_weights_io_rdata_3),
+    .io_w_4         (_weights_io_rdata_4),
+    .io_w_5         (_weights_io_rdata_5),
+    .io_w_6         (_weights_io_rdata_6),
+    .io_w_7         (_weights_io_rdata_7),
+    .io_bias_0      (_bias_io_groupBias_0),
+    .io_bias_1      (_bias_io_groupBias_1),
+    .io_bias_2      (_bias_io_groupBias_2),
+    .io_bias_3      (_bias_io_groupBias_3),
+    .io_bias_4      (_bias_io_groupBias_4),
+    .io_bias_5      (_bias_io_groupBias_5),
+    .io_bias_6      (_bias_io_groupBias_6),
+    .io_bias_7      (_bias_io_groupBias_7),
+    .io_weightRen   (_engines_7_io_weightRen),
+    .io_weightReadK (_engines_7_io_weightReadK),
+    .io_k           (_engines_7_io_k),
+    .io_done        (_engines_7_io_done),
+    .io_result_0    (_engines_7_io_result_0),
+    .io_result_1    (_engines_7_io_result_1),
+    .io_result_2    (_engines_7_io_result_2),
+    .io_result_3    (_engines_7_io_result_3),
+    .io_result_4    (_engines_7_io_result_4),
+    .io_result_5    (_engines_7_io_result_5),
+    .io_result_6    (_engines_7_io_result_6),
+    .io_result_7    (_engines_7_io_result_7)
+  );
+  TileXMacroRowBuffer xs_0_0 (
+    .clock      (clock),
+    .reset      (reset),
+    .io_wen
+      (~io_abort
+       & (io_xLoadWen & ~io_xLoadSet & _xs_1_0_io_wen_T_3 & ~clearing
+          & (~active | _xs_1_7_io_wen_T_8) | clearing & _io_clearXWrite_T)),
+    .io_waddr   (clearing ? clearIndex[9:0] : {4'b0, io_xLoadAddr}),
+    .io_wdata   (xs_1_7_io_wdata),
+    .io_packed  (~clearing & io_xLoadPacked),
+    .io_wdataHi (xs_1_7_io_wdataHi),
+    .io_ren     (_engines_0_io_weightRen & ~runSet & ~clearing & ~io_abort),
+    .io_raddr   (_engines_0_io_weightReadK),
+    .io_rdata   (_xs_0_0_io_rdata),
+    .io_rvalid  ()
+  );
+  TileXMacroRowBuffer xs_0_1 (
+    .clock      (clock),
+    .reset      (reset),
+    .io_wen
+      (~io_abort
+       & (io_xLoadWen & ~io_xLoadSet & _xs_1_1_io_wen_T_3 & ~clearing
+          & (~active | _xs_1_7_io_wen_T_8) | clearing & _io_clearXWrite_T)),
+    .io_waddr   (clearing ? clearIndex[9:0] : {4'b0, io_xLoadAddr}),
+    .io_wdata   (xs_1_7_io_wdata),
+    .io_packed  (~clearing & io_xLoadPacked),
+    .io_wdataHi (xs_1_7_io_wdataHi),
+    .io_ren     (_engines_1_io_weightRen & ~runSet & ~clearing & ~io_abort),
+    .io_raddr   (_engines_1_io_weightReadK),
+    .io_rdata   (_xs_0_1_io_rdata),
+    .io_rvalid  ()
+  );
+  TileXMacroRowBuffer xs_0_2 (
+    .clock      (clock),
+    .reset      (reset),
+    .io_wen
+      (~io_abort
+       & (io_xLoadWen & ~io_xLoadSet & _xs_1_2_io_wen_T_3 & ~clearing
+          & (~active | _xs_1_7_io_wen_T_8) | clearing & _io_clearXWrite_T)),
+    .io_waddr   (clearing ? clearIndex[9:0] : {4'b0, io_xLoadAddr}),
+    .io_wdata   (xs_1_7_io_wdata),
+    .io_packed  (~clearing & io_xLoadPacked),
+    .io_wdataHi (xs_1_7_io_wdataHi),
+    .io_ren     (_engines_2_io_weightRen & ~runSet & ~clearing & ~io_abort),
+    .io_raddr   (_engines_2_io_weightReadK),
+    .io_rdata   (_xs_0_2_io_rdata),
+    .io_rvalid  ()
+  );
+  TileXMacroRowBuffer xs_0_3 (
+    .clock      (clock),
+    .reset      (reset),
+    .io_wen
+      (~io_abort
+       & (io_xLoadWen & ~io_xLoadSet & _xs_1_3_io_wen_T_3 & ~clearing
+          & (~active | _xs_1_7_io_wen_T_8) | clearing & _io_clearXWrite_T)),
+    .io_waddr   (clearing ? clearIndex[9:0] : {4'b0, io_xLoadAddr}),
+    .io_wdata   (xs_1_7_io_wdata),
+    .io_packed  (~clearing & io_xLoadPacked),
+    .io_wdataHi (xs_1_7_io_wdataHi),
+    .io_ren     (_engines_3_io_weightRen & ~runSet & ~clearing & ~io_abort),
+    .io_raddr   (_engines_3_io_weightReadK),
+    .io_rdata   (_xs_0_3_io_rdata),
+    .io_rvalid  ()
+  );
+  TileXMacroRowBuffer xs_0_4 (
+    .clock      (clock),
+    .reset      (reset),
+    .io_wen
+      (~io_abort
+       & (io_xLoadWen & ~io_xLoadSet & _xs_1_4_io_wen_T_3 & ~clearing
+          & (~active | _xs_1_7_io_wen_T_8) | clearing & _io_clearXWrite_T)),
+    .io_waddr   (clearing ? clearIndex[9:0] : {4'b0, io_xLoadAddr}),
+    .io_wdata   (xs_1_7_io_wdata),
+    .io_packed  (~clearing & io_xLoadPacked),
+    .io_wdataHi (xs_1_7_io_wdataHi),
+    .io_ren     (_engines_4_io_weightRen & ~runSet & ~clearing & ~io_abort),
+    .io_raddr   (_engines_4_io_weightReadK),
+    .io_rdata   (_xs_0_4_io_rdata),
+    .io_rvalid  ()
+  );
+  TileXMacroRowBuffer xs_0_5 (
+    .clock      (clock),
+    .reset      (reset),
+    .io_wen
+      (~io_abort
+       & (io_xLoadWen & ~io_xLoadSet & _xs_1_5_io_wen_T_3 & ~clearing
+          & (~active | _xs_1_7_io_wen_T_8) | clearing & _io_clearXWrite_T)),
+    .io_waddr   (clearing ? clearIndex[9:0] : {4'b0, io_xLoadAddr}),
+    .io_wdata   (xs_1_7_io_wdata),
+    .io_packed  (~clearing & io_xLoadPacked),
+    .io_wdataHi (xs_1_7_io_wdataHi),
+    .io_ren     (_engines_5_io_weightRen & ~runSet & ~clearing & ~io_abort),
+    .io_raddr   (_engines_5_io_weightReadK),
+    .io_rdata   (_xs_0_5_io_rdata),
+    .io_rvalid  ()
+  );
+  TileXMacroRowBuffer xs_0_6 (
+    .clock      (clock),
+    .reset      (reset),
+    .io_wen
+      (~io_abort
+       & (io_xLoadWen & ~io_xLoadSet & _xs_1_6_io_wen_T_3 & ~clearing
+          & (~active | _xs_1_7_io_wen_T_8) | clearing & _io_clearXWrite_T)),
+    .io_waddr   (clearing ? clearIndex[9:0] : {4'b0, io_xLoadAddr}),
+    .io_wdata   (xs_1_7_io_wdata),
+    .io_packed  (~clearing & io_xLoadPacked),
+    .io_wdataHi (xs_1_7_io_wdataHi),
+    .io_ren     (_engines_6_io_weightRen & ~runSet & ~clearing & ~io_abort),
+    .io_raddr   (_engines_6_io_weightReadK),
+    .io_rdata   (_xs_0_6_io_rdata),
+    .io_rvalid  ()
+  );
+  TileXMacroRowBuffer xs_0_7 (
+    .clock      (clock),
+    .reset      (reset),
+    .io_wen
+      (~io_abort
+       & (io_xLoadWen & ~io_xLoadSet & _xs_1_7_io_wen_T_3 & ~clearing
+          & (~active | _xs_1_7_io_wen_T_8) | clearing & _io_clearXWrite_T)),
+    .io_waddr   (clearing ? clearIndex[9:0] : {4'b0, io_xLoadAddr}),
+    .io_wdata   (xs_1_7_io_wdata),
+    .io_packed  (~clearing & io_xLoadPacked),
+    .io_wdataHi (xs_1_7_io_wdataHi),
+    .io_ren     (_engines_7_io_weightRen & ~runSet & ~clearing & ~io_abort),
+    .io_raddr   (_engines_7_io_weightReadK),
+    .io_rdata   (_xs_0_7_io_rdata),
+    .io_rvalid  ()
+  );
+  TileXMacroRowBuffer xs_1_0 (
+    .clock      (clock),
+    .reset      (reset),
+    .io_wen
+      (~io_abort
+       & (io_xLoadWen & io_xLoadSet & _xs_1_0_io_wen_T_3 & ~clearing
+          & (~active | _xs_1_7_io_wen_T_8) | clearing & _io_clearXWrite_T)),
+    .io_waddr   (clearing ? clearIndex[9:0] : {4'b0, io_xLoadAddr}),
+    .io_wdata   (xs_1_7_io_wdata),
+    .io_packed  (~clearing & io_xLoadPacked),
+    .io_wdataHi (xs_1_7_io_wdataHi),
+    .io_ren     (_engines_0_io_weightRen & runSet & ~clearing & ~io_abort),
+    .io_raddr   (_engines_0_io_weightReadK),
+    .io_rdata   (_xs_1_0_io_rdata),
+    .io_rvalid  ()
+  );
+  TileXMacroRowBuffer xs_1_1 (
+    .clock      (clock),
+    .reset      (reset),
+    .io_wen
+      (~io_abort
+       & (io_xLoadWen & io_xLoadSet & _xs_1_1_io_wen_T_3 & ~clearing
+          & (~active | _xs_1_7_io_wen_T_8) | clearing & _io_clearXWrite_T)),
+    .io_waddr   (clearing ? clearIndex[9:0] : {4'b0, io_xLoadAddr}),
+    .io_wdata   (xs_1_7_io_wdata),
+    .io_packed  (~clearing & io_xLoadPacked),
+    .io_wdataHi (xs_1_7_io_wdataHi),
+    .io_ren     (_engines_1_io_weightRen & runSet & ~clearing & ~io_abort),
+    .io_raddr   (_engines_1_io_weightReadK),
+    .io_rdata   (_xs_1_1_io_rdata),
+    .io_rvalid  ()
+  );
+  TileXMacroRowBuffer xs_1_2 (
+    .clock      (clock),
+    .reset      (reset),
+    .io_wen
+      (~io_abort
+       & (io_xLoadWen & io_xLoadSet & _xs_1_2_io_wen_T_3 & ~clearing
+          & (~active | _xs_1_7_io_wen_T_8) | clearing & _io_clearXWrite_T)),
+    .io_waddr   (clearing ? clearIndex[9:0] : {4'b0, io_xLoadAddr}),
+    .io_wdata   (xs_1_7_io_wdata),
+    .io_packed  (~clearing & io_xLoadPacked),
+    .io_wdataHi (xs_1_7_io_wdataHi),
+    .io_ren     (_engines_2_io_weightRen & runSet & ~clearing & ~io_abort),
+    .io_raddr   (_engines_2_io_weightReadK),
+    .io_rdata   (_xs_1_2_io_rdata),
+    .io_rvalid  ()
+  );
+  TileXMacroRowBuffer xs_1_3 (
+    .clock      (clock),
+    .reset      (reset),
+    .io_wen
+      (~io_abort
+       & (io_xLoadWen & io_xLoadSet & _xs_1_3_io_wen_T_3 & ~clearing
+          & (~active | _xs_1_7_io_wen_T_8) | clearing & _io_clearXWrite_T)),
+    .io_waddr   (clearing ? clearIndex[9:0] : {4'b0, io_xLoadAddr}),
+    .io_wdata   (xs_1_7_io_wdata),
+    .io_packed  (~clearing & io_xLoadPacked),
+    .io_wdataHi (xs_1_7_io_wdataHi),
+    .io_ren     (_engines_3_io_weightRen & runSet & ~clearing & ~io_abort),
+    .io_raddr   (_engines_3_io_weightReadK),
+    .io_rdata   (_xs_1_3_io_rdata),
+    .io_rvalid  ()
+  );
+  TileXMacroRowBuffer xs_1_4 (
+    .clock      (clock),
+    .reset      (reset),
+    .io_wen
+      (~io_abort
+       & (io_xLoadWen & io_xLoadSet & _xs_1_4_io_wen_T_3 & ~clearing
+          & (~active | _xs_1_7_io_wen_T_8) | clearing & _io_clearXWrite_T)),
+    .io_waddr   (clearing ? clearIndex[9:0] : {4'b0, io_xLoadAddr}),
+    .io_wdata   (xs_1_7_io_wdata),
+    .io_packed  (~clearing & io_xLoadPacked),
+    .io_wdataHi (xs_1_7_io_wdataHi),
+    .io_ren     (_engines_4_io_weightRen & runSet & ~clearing & ~io_abort),
+    .io_raddr   (_engines_4_io_weightReadK),
+    .io_rdata   (_xs_1_4_io_rdata),
+    .io_rvalid  ()
+  );
+  TileXMacroRowBuffer xs_1_5 (
+    .clock      (clock),
+    .reset      (reset),
+    .io_wen
+      (~io_abort
+       & (io_xLoadWen & io_xLoadSet & _xs_1_5_io_wen_T_3 & ~clearing
+          & (~active | _xs_1_7_io_wen_T_8) | clearing & _io_clearXWrite_T)),
+    .io_waddr   (clearing ? clearIndex[9:0] : {4'b0, io_xLoadAddr}),
+    .io_wdata   (xs_1_7_io_wdata),
+    .io_packed  (~clearing & io_xLoadPacked),
+    .io_wdataHi (xs_1_7_io_wdataHi),
+    .io_ren     (_engines_5_io_weightRen & runSet & ~clearing & ~io_abort),
+    .io_raddr   (_engines_5_io_weightReadK),
+    .io_rdata   (_xs_1_5_io_rdata),
+    .io_rvalid  ()
+  );
+  TileXMacroRowBuffer xs_1_6 (
+    .clock      (clock),
+    .reset      (reset),
+    .io_wen
+      (~io_abort
+       & (io_xLoadWen & io_xLoadSet & _xs_1_6_io_wen_T_3 & ~clearing
+          & (~active | _xs_1_7_io_wen_T_8) | clearing & _io_clearXWrite_T)),
+    .io_waddr   (clearing ? clearIndex[9:0] : {4'b0, io_xLoadAddr}),
+    .io_wdata   (xs_1_7_io_wdata),
+    .io_packed  (~clearing & io_xLoadPacked),
+    .io_wdataHi (xs_1_7_io_wdataHi),
+    .io_ren     (_engines_6_io_weightRen & runSet & ~clearing & ~io_abort),
+    .io_raddr   (_engines_6_io_weightReadK),
+    .io_rdata   (_xs_1_6_io_rdata),
+    .io_rvalid  ()
+  );
+  TileXMacroRowBuffer xs_1_7 (
+    .clock      (clock),
+    .reset      (reset),
+    .io_wen
+      (~io_abort
+       & (io_xLoadWen & io_xLoadSet & _xs_1_7_io_wen_T_3 & ~clearing
+          & (~active | _xs_1_7_io_wen_T_8) | clearing & _io_clearXWrite_T)),
+    .io_waddr   (clearing ? clearIndex[9:0] : {4'b0, io_xLoadAddr}),
+    .io_wdata   (xs_1_7_io_wdata),
+    .io_packed  (~clearing & io_xLoadPacked),
+    .io_wdataHi (xs_1_7_io_wdataHi),
+    .io_ren     (_engines_7_io_weightRen & runSet & ~clearing & ~io_abort),
+    .io_raddr   (_engines_7_io_weightReadK),
+    .io_rdata   (_xs_1_7_io_rdata),
+    .io_rvalid  ()
+  );
+  TileWeightBankArray weights (
+    .clock         (clock),
+    .reset         (reset),
+    .io_loadWen    (io_wLoadWen & ~active & ~clearing & ~clearFire & ~io_abort),
+    .io_loadBank   (io_wLoadBank),
+    .io_loadAddr   (io_wLoadAddr),
+    .io_loadData_0 (io_wLoadData_0),
+    .io_loadData_1 (io_wLoadData_1),
+    .io_loadData_2 (io_wLoadData_2),
+    .io_loadData_3 (io_wLoadData_3),
+    .io_clearWen   (weights_io_clearWen),
+    .io_clearAddr  (clearIndex[9:0]),
+    .io_ren        (weights_io_ren),
+    .io_raddr      ({produced[4:0], _engines_0_io_weightReadK}),
+    .io_rdata_0    (_weights_io_rdata_0),
+    .io_rdata_1    (_weights_io_rdata_1),
+    .io_rdata_2    (_weights_io_rdata_2),
+    .io_rdata_3    (_weights_io_rdata_3),
+    .io_rdata_4    (_weights_io_rdata_4),
+    .io_rdata_5    (_weights_io_rdata_5),
+    .io_rdata_6    (_weights_io_rdata_6),
+    .io_rdata_7    (_weights_io_rdata_7)
+  );
+  assign io_active = active & ~io_abort;
+  assign io_done = ~_GEN_1 & _GEN_2;
+  assign io_biasHostReady =
+    _bias_io_hostReady & ~active & ~clearing & ~clearFire & ~io_abort;
+  assign io_biasRspValid = _bias_io_rspValid & ~io_abort;
+  assign io_clearReady = io_clearReady_0;
+  assign io_clearDone = clearDone & ~io_abort;
+  assign io_clearing = clearing & ~io_abort;
+  assign io_outValid = io_outValid_0;
+  assign io_outGroup = head ? tags_1 : tags_0;
+  assign io_outRow = outputRow;
+  assign io_outResult_0 = {{7{casez_tmp[40]}}, casez_tmp};
+  assign io_outResult_1 = {{7{casez_tmp_0[40]}}, casez_tmp_0};
+  assign io_outResult_2 = {{7{casez_tmp_1[40]}}, casez_tmp_1};
+  assign io_outResult_3 = {{7{casez_tmp_2[40]}}, casez_tmp_2};
+  assign io_outResult_4 = {{7{casez_tmp_3[40]}}, casez_tmp_3};
+  assign io_outResult_5 = {{7{casez_tmp_4[40]}}, casez_tmp_4};
+  assign io_outResult_6 = {{7{casez_tmp_5[40]}}, casez_tmp_5};
+  assign io_outResult_7 = {{7{casez_tmp_6[40]}}, casez_tmp_6};
+  assign io_computeStart = launch;
+  assign io_weightRead = weights_io_ren;
+  assign io_macStep = running & io_macStep_REG & ~io_abort;
+  assign io_fifoFullWait = active & ~running & ~(produced[5]) & count == 2'h2 & ~io_abort;
+  assign io_clearWeightWrite = weights_io_clearWen;
+  assign io_clearXWrite = clearing & _io_clearXWrite_T & ~io_abort;
+
+`ifndef SYNTHESIS
+  always @(posedge clock) if (!reset && !io_abort && !clearing) begin
+    if (engines_0.peArray.io_enable)
+      assert (runSet ? xs_1_0.io_rvalid : xs_0_0.io_rvalid)
+        else $fatal(1,"X/W synchronous alignment missing row 0");
+    if (engines_1.peArray.io_enable)
+      assert (runSet ? xs_1_1.io_rvalid : xs_0_1.io_rvalid)
+        else $fatal(1,"X/W synchronous alignment missing row 1");
+    if (engines_2.peArray.io_enable)
+      assert (runSet ? xs_1_2.io_rvalid : xs_0_2.io_rvalid)
+        else $fatal(1,"X/W synchronous alignment missing row 2");
+    if (engines_3.peArray.io_enable)
+      assert (runSet ? xs_1_3.io_rvalid : xs_0_3.io_rvalid)
+        else $fatal(1,"X/W synchronous alignment missing row 3");
+    if (engines_4.peArray.io_enable)
+      assert (runSet ? xs_1_4.io_rvalid : xs_0_4.io_rvalid)
+        else $fatal(1,"X/W synchronous alignment missing row 4");
+    if (engines_5.peArray.io_enable)
+      assert (runSet ? xs_1_5.io_rvalid : xs_0_5.io_rvalid)
+        else $fatal(1,"X/W synchronous alignment missing row 5");
+    if (engines_6.peArray.io_enable)
+      assert (runSet ? xs_1_6.io_rvalid : xs_0_6.io_rvalid)
+        else $fatal(1,"X/W synchronous alignment missing row 6");
+    if (engines_7.peArray.io_enable)
+      assert (runSet ? xs_1_7.io_rvalid : xs_0_7.io_rvalid)
+        else $fatal(1,"X/W synchronous alignment missing row 7");
+  end
+`endif
+endmodule
+
+
+`else
 module LinearTileDmaCore(
   input         clock,
                 reset,
@@ -2964,3 +5439,8 @@ module LinearTileDmaCore(
   assign io_clearXWrite = clearing & _io_clearXWrite_T & ~io_abort;
 endmodule
 
+
+`endif
+`ifdef C32_X_SRAM_SELECTED
+`undef C32_X_SRAM_SELECTED
+`endif
