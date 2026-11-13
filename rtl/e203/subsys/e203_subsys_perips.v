@@ -1,3 +1,16 @@
+`ifdef XU_MATRIX_DMA_SYSBUS32
+ `ifdef XU_MATRIX_DMA64
+  `error "SYSBUS32 and historical DMA64 configurations are mutually exclusive"
+ `endif
+ `ifndef XU_MATRIX_DMA
+  `error "SYSBUS32 requires XU_MATRIX_DMA"
+ `endif
+`endif
+`ifdef XU_SYSBUS_TEST_LOADER
+ `ifndef XU_MATRIX_DMA_SYSBUS32
+  `error "SystemBus simulation loader requires SYSBUS32 configuration"
+ `endif
+`endif
  /*                                                                      
  Copyright 2018-2020 Nuclei System Technology, Inc.                
                                                                          
@@ -813,7 +826,9 @@ module e203_subsys_perips(
 `ifdef XU_MATRIX_DMA
 // Candidate build replaces the old compute instance: exactly one W/bias store.
 // Default builds below retain the complete historical accelerator and ABI.
-`ifdef XU_MATRIX_DMA64
+`ifdef XU_MATRIX_DMA_SYSBUS32
+xu_matrix_dma_sysbus32 u_xu_matrix_dma (
+`elsif XU_MATRIX_DMA64
 xu_matrix_dma64 u_xu_matrix_dma (
 `else
 xu_matrix_dma u_xu_matrix_dma (

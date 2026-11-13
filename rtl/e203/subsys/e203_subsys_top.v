@@ -1,3 +1,16 @@
+`ifdef XU_MATRIX_DMA_SYSBUS32
+ `ifdef XU_MATRIX_DMA64
+  `error "SYSBUS32 and historical DMA64 configurations are mutually exclusive"
+ `endif
+ `ifndef XU_MATRIX_DMA
+  `error "SYSBUS32 requires XU_MATRIX_DMA"
+ `endif
+`endif
+`ifdef XU_SYSBUS_TEST_LOADER
+ `ifndef XU_MATRIX_DMA_SYSBUS32
+  `error "SystemBus simulation loader requires SYSBUS32 configuration"
+ `endif
+`endif
  /*                                                                      
  Copyright 2018-2020 Nuclei System Technology, Inc.                
                                                                          
@@ -29,6 +42,15 @@
 `include "e203_defines.v"
 
 module e203_subsys_top(
+`ifdef XU_SYSBUS_TEST_LOADER
+  // Simulation stimulus enters the original SystemBus BEFORE mem_fab.
+  input sysbus_load_cmd_valid, output sysbus_load_cmd_ready,
+  input [31:0] sysbus_load_cmd_addr, input sysbus_load_cmd_read,
+  input [31:0] sysbus_load_cmd_wdata, input [3:0] sysbus_load_cmd_wmask,
+  output sysbus_load_rsp_valid, input sysbus_load_rsp_ready,
+  output sysbus_load_rsp_err, output [31:0] sysbus_load_rsp_rdata,
+`endif
+
   output shared_mem_clk,
   output shared_mem_rst_n,
   // This clock should comes from the crystal pad generated high speed clock (16MHz)
@@ -327,6 +349,13 @@ module e203_subsys_top(
 
 
   e203_subsys_main  u_e203_subsys_main(
+`ifdef XU_SYSBUS_TEST_LOADER
+    .sysbus_load_cmd_valid(sysbus_load_cmd_valid),.sysbus_load_cmd_ready(sysbus_load_cmd_ready),
+    .sysbus_load_cmd_addr(sysbus_load_cmd_addr),.sysbus_load_cmd_read(sysbus_load_cmd_read),
+    .sysbus_load_cmd_wdata(sysbus_load_cmd_wdata),.sysbus_load_cmd_wmask(sysbus_load_cmd_wmask),
+    .sysbus_load_rsp_valid(sysbus_load_rsp_valid),.sysbus_load_rsp_ready(sysbus_load_rsp_ready),
+    .sysbus_load_rsp_err(sysbus_load_rsp_err),.sysbus_load_rsp_rdata(sysbus_load_rsp_rdata),
+`endif
     .shared_mem_clk(shared_mem_clk),
     .shared_mem_rst_n(shared_mem_rst_n),
     .pc_rtvec        (pc_rtvec),

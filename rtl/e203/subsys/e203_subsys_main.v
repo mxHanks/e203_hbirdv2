@@ -1,3 +1,16 @@
+`ifdef XU_MATRIX_DMA_SYSBUS32
+ `ifdef XU_MATRIX_DMA64
+  `error "SYSBUS32 and historical DMA64 configurations are mutually exclusive"
+ `endif
+ `ifndef XU_MATRIX_DMA
+  `error "SYSBUS32 requires XU_MATRIX_DMA"
+ `endif
+`endif
+`ifdef XU_SYSBUS_TEST_LOADER
+ `ifndef XU_MATRIX_DMA_SYSBUS32
+  `error "SystemBus simulation loader requires SYSBUS32 configuration"
+ `endif
+`endif
  /*                                                                      
  Copyright 2018-2020 Nuclei System Technology, Inc.                
                                                                          
@@ -30,6 +43,15 @@
 
 
 module e203_subsys_main(
+`ifdef XU_SYSBUS_TEST_LOADER
+  // Simulation stimulus enters the original SystemBus BEFORE mem_fab.
+  input sysbus_load_cmd_valid, output sysbus_load_cmd_ready,
+  input [31:0] sysbus_load_cmd_addr, input sysbus_load_cmd_read,
+  input [31:0] sysbus_load_cmd_wdata, input [3:0] sysbus_load_cmd_wmask,
+  output sysbus_load_rsp_valid, input sysbus_load_rsp_ready,
+  output sysbus_load_rsp_err, output [31:0] sysbus_load_rsp_rdata,
+`endif
+
   // Public clock/reset ownership for the external shared-memory endpoint.
   output shared_mem_clk,
   output shared_mem_rst_n,
@@ -489,6 +511,32 @@ module e203_subsys_main(
   wire [31:0] xu_direct_status;
   wire xu_direct_commit, xu_direct_commit_ready, xu_direct_commit_err;
 
+  wire dma_cmd_valid, dma_cmd_ready, dma_cmd_read;
+  wire [31:0] dma_cmd_addr;
+`ifdef XU_MATRIX_DMA64
+  wire [63:0] dma_cmd_wdata;
+`else
+  wire [31:0] dma_cmd_wdata;
+`endif
+`ifdef XU_MATRIX_DMA64
+  wire [7:0] dma_cmd_wmask;
+`else
+  wire [3:0] dma_cmd_wmask;
+`endif
+  wire dma_rsp_valid, dma_rsp_ready, dma_rsp_err;
+`ifdef XU_MATRIX_DMA64
+  wire [63:0] dma_rsp_rdata;
+`else
+  wire [31:0] dma_rsp_rdata;
+`endif
+`ifdef XU_MATRIX_DMA_SYSBUS32
+  wire bus_mem_icb_cmd_valid,bus_mem_icb_cmd_ready,bus_mem_icb_cmd_read;
+  wire [31:0] bus_mem_icb_cmd_addr,bus_mem_icb_cmd_wdata;
+  wire [3:0] bus_mem_icb_cmd_wmask;
+  wire bus_mem_icb_rsp_valid,bus_mem_icb_rsp_ready,bus_mem_icb_rsp_err;
+  wire [31:0] bus_mem_icb_rsp_rdata;
+`endif
+
   e203_cpu_top u_e203_cpu_top(
     .xu_direct_capable(xu_direct_capable), .xu_direct_claim(xu_direct_claim),
     .xu_direct_valid(xu_direct_valid), .xu_direct_ready(xu_direct_ready),
@@ -873,6 +921,7 @@ e203_subsys_clint u_e203_subsys_clint(
     .rst_n         (per_rst_n) 
   );
 
+`ifndef XU_MATRIX_DMA_SYSBUS32
 // Independent peripheral DMA shares the external SRAM port with the unchanged
 // CPU memory-fabric output. Root integration drives only the dma_* master.
   wire cpu_sysmem_icb_cmd_valid, cpu_sysmem_icb_cmd_ready;
@@ -881,24 +930,7 @@ e203_subsys_clint u_e203_subsys_clint(
   wire cpu_sysmem_icb_cmd_read;
   wire cpu_sysmem_icb_rsp_valid, cpu_sysmem_icb_rsp_ready, cpu_sysmem_icb_rsp_err;
   wire [31:0] cpu_sysmem_icb_rsp_rdata;
-  wire dma_cmd_valid, dma_cmd_ready, dma_cmd_read;
-  wire [31:0] dma_cmd_addr;
-`ifdef XU_MATRIX_DMA64
-  wire [63:0] dma_cmd_wdata;
-`else
-  wire [31:0] dma_cmd_wdata;
-`endif
-`ifdef XU_MATRIX_DMA64
-  wire [7:0] dma_cmd_wmask;
-`else
-  wire [3:0] dma_cmd_wmask;
-`endif
-  wire dma_rsp_valid, dma_rsp_ready, dma_rsp_err;
-`ifdef XU_MATRIX_DMA64
-  wire [63:0] dma_rsp_rdata;
-`else
-  wire [31:0] dma_rsp_rdata;
-`endif
+
 
 `ifdef XU_MATRIX_DMA
 `ifdef XU_MATRIX_DMA64
@@ -944,31 +976,172 @@ e203_subsys_clint u_e203_subsys_clint(
   assign dma_rsp_rdata=32'b0;
 `endif
 
+`endif
+
+`ifdef XU_MATRIX_DMA_SYSBUS32
+  // Both sources traverse the original32 mem_fab and sysmem output below.
+  xu_systembus_ingress32 #(
+`ifdef XU_SYSBUS_TEST_LOADER
+    .TEST_LOADER(1)
+`else
+    .TEST_LOADER(0)
+`endif
+  ) u_xu_systembus_ingress (
+    .cpu_cmd_valid(mem_icb_cmd_valid),
+    .cpu_cmd_ready(mem_icb_cmd_ready),
+    .cpu_cmd_addr(mem_icb_cmd_addr),
+    .cpu_cmd_read(mem_icb_cmd_read),
+    .cpu_cmd_wdata(mem_icb_cmd_wdata),
+    .cpu_cmd_wmask(mem_icb_cmd_wmask),
+    .cpu_rsp_valid(mem_icb_rsp_valid),
+    .cpu_rsp_ready(mem_icb_rsp_ready),
+    .cpu_rsp_err(mem_icb_rsp_err),
+    .cpu_rsp_rdata(mem_icb_rsp_rdata),
+    .dma_cmd_valid(dma_cmd_valid),
+    .dma_cmd_ready(dma_cmd_ready),
+    .dma_cmd_addr(dma_cmd_addr),
+    .dma_cmd_read(dma_cmd_read),
+    .dma_cmd_wdata(dma_cmd_wdata),
+    .dma_cmd_wmask(dma_cmd_wmask),
+    .dma_rsp_valid(dma_rsp_valid),
+    .dma_rsp_ready(dma_rsp_ready),
+    .dma_rsp_err(dma_rsp_err),
+    .dma_rsp_rdata(dma_rsp_rdata),
+    .bus_cmd_valid(bus_mem_icb_cmd_valid),
+    .bus_cmd_ready(bus_mem_icb_cmd_ready),
+    .bus_cmd_addr(bus_mem_icb_cmd_addr),
+    .bus_cmd_read(bus_mem_icb_cmd_read),
+    .bus_cmd_wdata(bus_mem_icb_cmd_wdata),
+    .bus_cmd_wmask(bus_mem_icb_cmd_wmask),
+    .bus_rsp_valid(bus_mem_icb_rsp_valid),
+    .bus_rsp_ready(bus_mem_icb_rsp_ready),
+    .bus_rsp_err(bus_mem_icb_rsp_err),
+    .bus_rsp_rdata(bus_mem_icb_rsp_rdata),
+`ifdef XU_SYSBUS_TEST_LOADER
+    .load_cmd_valid(sysbus_load_cmd_valid),
+    .load_cmd_ready(sysbus_load_cmd_ready),
+    .load_cmd_addr(sysbus_load_cmd_addr),
+    .load_cmd_read(sysbus_load_cmd_read),
+    .load_cmd_wdata(sysbus_load_cmd_wdata),
+    .load_cmd_wmask(sysbus_load_cmd_wmask),
+    .load_rsp_valid(sysbus_load_rsp_valid),
+    .load_rsp_ready(sysbus_load_rsp_ready),
+    .load_rsp_err(sysbus_load_rsp_err),
+    .load_rsp_rdata(sysbus_load_rsp_rdata),
+`else
+    .load_cmd_valid(1'b0),.load_cmd_ready(),.load_cmd_addr(32'b0),.load_cmd_read(1'b1),
+    .load_cmd_wdata(32'b0),.load_cmd_wmask(4'b0),.load_rsp_valid(),.load_rsp_ready(1'b1),
+    .load_rsp_err(),.load_rsp_rdata(),
+`endif
+    .clk(hfclk),.rst_n(bus_rst_n)
+  );
+`endif
+
   e203_subsys_mems u_e203_subsys_mems(
 
+`ifdef XU_MATRIX_DMA_SYSBUS32
+    .mem_icb_cmd_valid(bus_mem_icb_cmd_valid),
+`else
     .mem_icb_cmd_valid  (mem_icb_cmd_valid),
+`endif
+`ifdef XU_MATRIX_DMA_SYSBUS32
+    .mem_icb_cmd_ready(bus_mem_icb_cmd_ready),
+`else
     .mem_icb_cmd_ready  (mem_icb_cmd_ready),
+`endif
+`ifdef XU_MATRIX_DMA_SYSBUS32
+    .mem_icb_cmd_addr(bus_mem_icb_cmd_addr),
+`else
     .mem_icb_cmd_addr   (mem_icb_cmd_addr ),
+`endif
+`ifdef XU_MATRIX_DMA_SYSBUS32
+    .mem_icb_cmd_read(bus_mem_icb_cmd_read),
+`else
     .mem_icb_cmd_read   (mem_icb_cmd_read ),
+`endif
+`ifdef XU_MATRIX_DMA_SYSBUS32
+    .mem_icb_cmd_wdata(bus_mem_icb_cmd_wdata),
+`else
     .mem_icb_cmd_wdata  (mem_icb_cmd_wdata),
+`endif
+`ifdef XU_MATRIX_DMA_SYSBUS32
+    .mem_icb_cmd_wmask(bus_mem_icb_cmd_wmask),
+`else
     .mem_icb_cmd_wmask  (mem_icb_cmd_wmask),
+`endif
     
+`ifdef XU_MATRIX_DMA_SYSBUS32
+    .mem_icb_rsp_valid(bus_mem_icb_rsp_valid),
+`else
     .mem_icb_rsp_valid  (mem_icb_rsp_valid),
+`endif
+`ifdef XU_MATRIX_DMA_SYSBUS32
+    .mem_icb_rsp_ready(bus_mem_icb_rsp_ready),
+`else
     .mem_icb_rsp_ready  (mem_icb_rsp_ready),
+`endif
+`ifdef XU_MATRIX_DMA_SYSBUS32
+    .mem_icb_rsp_err(bus_mem_icb_rsp_err),
+`else
     .mem_icb_rsp_err    (mem_icb_rsp_err  ),
+`endif
+`ifdef XU_MATRIX_DMA_SYSBUS32
+    .mem_icb_rsp_rdata(bus_mem_icb_rsp_rdata),
+`else
     .mem_icb_rsp_rdata  (mem_icb_rsp_rdata),
+`endif
 
+`ifdef XU_MATRIX_DMA_SYSBUS32
+    .sysmem_icb_cmd_valid(sysmem_icb_cmd_valid),
+`else
     .sysmem_icb_cmd_valid  (cpu_sysmem_icb_cmd_valid),
+`endif
+`ifdef XU_MATRIX_DMA_SYSBUS32
+    .sysmem_icb_cmd_ready(sysmem_icb_cmd_ready),
+`else
     .sysmem_icb_cmd_ready  (cpu_sysmem_icb_cmd_ready),
+`endif
+`ifdef XU_MATRIX_DMA_SYSBUS32
+    .sysmem_icb_cmd_addr(sysmem_icb_cmd_addr),
+`else
     .sysmem_icb_cmd_addr   (cpu_sysmem_icb_cmd_addr ),
+`endif
+`ifdef XU_MATRIX_DMA_SYSBUS32
+    .sysmem_icb_cmd_read(sysmem_icb_cmd_read),
+`else
     .sysmem_icb_cmd_read   (cpu_sysmem_icb_cmd_read ),
+`endif
+`ifdef XU_MATRIX_DMA_SYSBUS32
+    .sysmem_icb_cmd_wdata(sysmem_icb_cmd_wdata),
+`else
     .sysmem_icb_cmd_wdata  (cpu_sysmem_icb_cmd_wdata),
+`endif
+`ifdef XU_MATRIX_DMA_SYSBUS32
+    .sysmem_icb_cmd_wmask(sysmem_icb_cmd_wmask),
+`else
     .sysmem_icb_cmd_wmask  (cpu_sysmem_icb_cmd_wmask),
+`endif
     
+`ifdef XU_MATRIX_DMA_SYSBUS32
+    .sysmem_icb_rsp_valid(sysmem_icb_rsp_valid),
+`else
     .sysmem_icb_rsp_valid  (cpu_sysmem_icb_rsp_valid),
+`endif
+`ifdef XU_MATRIX_DMA_SYSBUS32
+    .sysmem_icb_rsp_ready(sysmem_icb_rsp_ready),
+`else
     .sysmem_icb_rsp_ready  (cpu_sysmem_icb_rsp_ready),
+`endif
+`ifdef XU_MATRIX_DMA_SYSBUS32
+    .sysmem_icb_rsp_err(sysmem_icb_rsp_err),
+`else
     .sysmem_icb_rsp_err    (cpu_sysmem_icb_rsp_err  ),
+`endif
+`ifdef XU_MATRIX_DMA_SYSBUS32
+    .sysmem_icb_rsp_rdata(sysmem_icb_rsp_rdata),
+`else
     .sysmem_icb_rsp_rdata  (cpu_sysmem_icb_rsp_rdata),
+`endif
  
     .qspi0_ro_icb_cmd_valid  (qspi0_ro_icb_cmd_valid), 
     .qspi0_ro_icb_cmd_ready  (qspi0_ro_icb_cmd_ready),
